@@ -1,0 +1,2702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mirror World | macOS</title>
+    <style>
+        /* macOS Style UI */
+        :root {
+            --macos-titlebar: #2c2c2e;
+            --macos-accent: #007aff;
+            --macos-window: #f2f2f7;
+            --macos-border: #d1d1d6;
+            --macos-text: #1c1c1e;
+            --macos-text-secondary: #636366;
+            --primary-color: #007aff;
+            --mirror-color: #32d74b;
+            --warning-color: #ff453a;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #e5e5ea;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: var(--macos-text);
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* macOS Window */
+        .macos-window {
+            width: 1000px;
+            height: 700px;
+            background-color: var(--macos-window);
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Title Bar */
+        .title-bar {
+            height: 28px;
+            background-color: var(--macos-titlebar);
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            position: relative;
+        }
+
+        .traffic-lights {
+            display: flex;
+            gap: 8px;
+        }
+
+        .traffic-light {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .close { background-color: #ff5f56; }
+        .minimize { background-color: #ffbd2e; }
+        .maximize { background-color: #27c93f; }
+
+        .title {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            padding: 8px 15px;
+            border-bottom: 1px solid var(--macos-border);
+            display: flex;
+            gap: 10px;
+            background-color: rgba(242, 242, 247, 0.8);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn {
+            padding: 4px 12px;
+            border-radius: 4px;
+            border: none;
+            background-color: transparent;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .btn-primary {
+            background-color: var(--macos-accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0062cc;
+        }
+
+        .btn-warning {
+            background-color: var(--warning-color);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background-color: #d40a00;
+        }
+
+        /* Game Container */
+        .game-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background-color: #f8f8f8;
+        }
+
+        #game-canvas {
+            display: block;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 200px;
+            border-left: 1px solid var(--macos-border);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            background-color: rgba(242, 242, 247, 0.8);
+            backdrop-filter: blur(10px);
+        }
+
+        .level-info {
+            margin-bottom: 20px;
+        }
+
+        .level-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .level-description {
+            font-size: 12px;
+            color: var(--macos-text-secondary);
+            margin-bottom: 15px;
+            line-height: 1.4;
+        }
+
+        .stats {
+            margin-top: auto;
+        }
+
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+
+        .stat-label {
+            color: var(--macos-text-secondary);
+        }
+
+        .stat-value {
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        /* Modal */
+        .modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .modal.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal-content {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            width: 400px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            transform: translateY(20px);
+            transition: transform 0.3s, opacity 0.3s;
+            opacity: 0;
+        }
+
+        .modal.active .modal-content {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        /* Layout */
+        .content {
+            display: flex;
+            flex: 1;
+            position: relative;
+        }
+
+        /* Tutorial */
+        .tutorial {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 8px;
+            padding: 12px 15px;
+            font-size: 12px;
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+            max-width: 250px;
+            z-index: 10;
+            transform: translateY(10px);
+            opacity: 0;
+            transition: all 0.3s;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .tutorial.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .tutorial-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+        }
+
+        .tutorial-title svg {
+            margin-right: 6px;
+        }
+
+        .key {
+            display: inline-block;
+            background-color: #e0e0e0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 11px;
+            margin: 0 2px;
+            box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Transition overlay */
+        .transition-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            z-index: 50;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease-in-out;
+        }
+
+        /* Dimension transition effect */
+        .dimension-effect {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 20;
+            opacity: 0;
+            pointer-events: none;
+            mix-blend-mode: overlay;
+        }
+
+        .dimension-effect::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--mirror-color) 100%);
+            opacity: 0.7;
+        }
+
+        /* Particles */
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* Completion effect */
+        .completion-effect {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, rgba(255, 255, 255, 0.8) 0%, transparent 70%);
+            z-index: 30;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s;
+        }
+
+        /* Progress bar */
+        .progress-container {
+            height: 4px;
+            background-color: rgba(0, 0, 0, 0.05);
+            border-radius: 2px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--mirror-color));
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        /* Vibration effect */
+        @keyframes vibrate {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-2px); }
+            50% { transform: translateX(2px); }
+            75% { transform: translateX(-2px); }
+            100% { transform: translateX(0); }
+        }
+
+        .vibrate {
+            animation: vibrate 0.3s linear;
+        }
+
+        /* Difficulty meter */
+        .difficulty-meter {
+            display: flex;
+            gap: 3px;
+            margin-top: 10px;
+        }
+
+        .difficulty-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #d1d1d6;
+        }
+
+        .difficulty-dot.active {
+            background-color: var(--primary-color);
+        }
+
+        /* Level select grid */
+        .level-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 5px;
+        }
+
+        .level-btn {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            border: 1px solid var(--macos-border);
+            background-color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 12px;
+            position: relative;
+        }
+
+        .level-btn:hover {
+            background-color: #f2f2f7;
+        }
+
+        .level-btn.completed {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .level-btn.current {
+            border-color: var(--macos-text);
+            font-weight: bold;
+        }
+
+        .level-btn.locked {
+            background-color: #f2f2f7;
+            color: var(--macos-text-secondary);
+            cursor: not-allowed;
+        }
+
+        .level-badge {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 9px;
+            background-color: var(--warning-color);
+            color: white;
+            border-radius: 4px;
+            padding: 1px 3px;
+        }
+
+        /* Dimension border indicators */
+        .dimension-indicator {
+            position: absolute;
+            z-index: 5;
+            background-color: rgba(0, 0, 0, 0.1);
+            pointer-events: none;
+        }
+
+        .dimension-indicator.primary {
+            border: 2px solid var(--primary-color);
+        }
+
+        .dimension-indicator.mirror {
+            border: 2px solid var(--mirror-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="macos-window">
+        <div class="title-bar">
+            <div class="traffic-lights">
+                <div class="traffic-light close"></div>
+                <div class="traffic-light minimize"></div>
+                <div class="traffic-light maximize"></div>
+            </div>
+            <div class="title">Mirror World</div>
+        </div>
+        <div class="toolbar">
+            <button class="btn" id="reset-btn">Reset Level</button>
+            <button class="btn" id="hint-btn">Hint</button>
+            <div style="flex: 1;"></div>
+            <button class="btn" id="levels-btn">Levels</button>
+            <button class="btn btn-primary" id="dimension-btn">Switch Dimension</button>
+        </div>
+        <div class="content">
+            <div class="game-container">
+                <canvas id="game-canvas" width="800" height="668"></canvas>
+                
+                <!-- Dimension border indicators -->
+                <div class="dimension-indicator primary" id="primary-indicator"></div>
+                <div class="dimension-indicator mirror" id="mirror-indicator"></div>
+                
+                <div class="tutorial" id="tutorial">
+                    <div class="tutorial-title">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M12 8V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M12 16H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        How to Play
+                    </div>
+                    <p>Use <span class="key">WASD</span> or <span class="key">↑←↓→</span> to move</p>
+                    <p>Press <span class="key">SPACE</span> or click the button to switch dimensions</p>
+                    <p>Reach the portal in both dimensions to complete the level</p>
+                </div>
+
+                <div class="transition-overlay" id="transition-overlay"></div>
+                <div class="dimension-effect" id="dimension-effect"></div>
+                <div class="completion-effect" id="completion-effect"></div>
+            </div>
+            <div class="sidebar">
+                <div class="level-info">
+                    <div class="level-title">Level 1: First Steps</div>
+                    <div class="level-description">Learn how switching dimensions affects the world</div>
+                    
+                    <div class="difficulty-meter">
+                        <div class="difficulty-dot"></div>
+                        <div class="difficulty-dot"></div>
+                        <div class="difficulty-dot"></div>
+                        <div class="difficulty-dot"></div>
+                        <div class="difficulty-dot"></div>
+                    </div>
+                    
+                    <div class="progress-container">
+                        <div class="progress-bar" id="progress-bar"></div>
+                    </div>
+                </div>
+                <div class="stats">
+                    <div class="stat">
+                        <span class="stat-label">Current Dimension:</span>
+                        <span class="stat-value" id="dimension-display">Primary</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Switches Left:</span>
+                        <span class="stat-value" id="switches-display">10</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Time:</span>
+                        <span class="stat-value" id="time-display">0:00</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Level:</span>
+                        <span class="stat-value" id="level-display">1</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Level Select Modal -->
+    <div class="modal" id="levels-modal">
+        <div class="modal-content">
+            <div class="modal-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M12 8V12V16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Select Level
+            </div>
+            <div class="level-grid" id="levels-grid">
+                <!-- Levels will be added here by JS -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn" id="close-levels-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Level Complete Modal -->
+    <div class="modal" id="complete-modal">
+        <div class="modal-content">
+            <div class="modal-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M22 11.08V12C21.9988 14.1564 21.3005 16.2547 20.0093 17.9818C18.7182 19.7088 16.9033 20.9725 14.8354 21.5839C12.7674 22.1953 10.5573 22.1219 8.53447 21.3746C6.51168 20.6273 4.78465 19.2461 3.61096 17.4371C2.43727 15.628 1.87979 13.4881 2.02168 11.3363C2.16356 9.18455 2.99721 7.13631 4.39828 5.49706C5.79935 3.85781 7.69279 2.71537 9.79619 2.24013C11.8996 1.7649 14.1003 1.98232 16.07 2.86" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M22 4L12 14.01L9 11.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Level Complete!
+            </div>
+            <div id="complete-stats">
+                <div class="stat">
+                    <span class="stat-label">Dimension Switches:</span>
+                    <span class="stat-value" id="complete-switches">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Time:</span>
+                    <span class="stat-value" id="complete-time">0:00</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Level Score:</span>
+                    <span class="stat-value" id="complete-score">0</span>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn" id="replay-btn">Play Again</button>
+                <button class="btn btn-primary" id="next-btn">Next Level</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game Constants
+        const TILE_SIZE = 32;
+        const PLAYER_SIZE = 24;
+        const PORTAL_SIZE = 30;
+        const BASE_SWITCH_LIMIT = 10;
+        const MOVE_SPEED = 0.15;
+        const DIMENSION_TRANSITION_DURATION = 400;
+        const PORTAL_PARTICLES = 15;
+        const PARTICLE_LIFETIME = 1000;
+        const LEVEL_WIDTH = 20;
+        const LEVEL_HEIGHT = 15;
+        const MAX_LEVELS = 50;
+
+        // Game State
+        let currentLevel = 0;
+        let highestUnlockedLevel = 0;
+        let currentDimension = 'primary';
+        let dimensionSwitches = 0;
+        let switchLimit = BASE_SWITCH_LIMIT;
+        let startTime = 0;
+        let gameTime = 0;
+        let gameInterval;
+        let player = { x: 0, y: 0, targetX: 0, targetY: 0, moving: false };
+        let mirrorPlayer = { x: 0, y: 0, targetX: 0, targetY: 0, moving: false };
+        let portal = { x: 0, y: 0 };
+        let mirrorPortal = { x: 0, y: 0 };
+        let walls = [];
+        let mirrorWalls = [];
+        let crates = [];
+        let mirrorCrates = [];
+        let buttons = [];
+        let mirrorButtons = [];
+        let gates = [];
+        let mirrorGates = [];
+        let teleporters = [];
+        let mirrorTeleporters = [];
+        let oneWayWalls = [];
+        let mirrorOneWayWalls = [];
+        let dimensionOnlyWalls = [];
+        let completedPrimary = false;
+        let completedMirror = false;
+        let isTransitioning = false;
+        let pendingMove = null;
+        let particles = [];
+        let lastPortalParticleTime = 0;
+        let completedLevels = new Set();
+
+        // Canvas Setup
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const scale = window.devicePixelRatio || 1;
+        
+        // Adjust canvas size for high DPI displays
+        canvas.style.width = (canvas.width / scale) + 'px';
+        canvas.style.height = (canvas.height / scale) + 'px';
+        canvas.width = canvas.width * scale;
+        canvas.height = canvas.height * scale;
+        ctx.scale(scale, scale);
+
+        // DOM Elements
+        const dimensionEffect = document.getElementById('dimension-effect');
+        const transitionOverlay = document.getElementById('transition-overlay');
+        const tutorial = document.getElementById('tutorial');
+        const completionEffect = document.getElementById('completion-effect');
+        const progressBar = document.getElementById('progress-bar');
+        const dimensionBtn = document.getElementById('dimension-btn');
+        const levelDisplay = document.getElementById('level-display');
+        const primaryIndicator = document.getElementById('primary-indicator');
+        const mirrorIndicator = document.getElementById('mirror-indicator');
+
+        // Level Data - 50 handcrafted levels with increasing difficulty
+        const levels = [
+            // Level 1 - Basic introduction
+            {
+                title: "First Steps",
+                description: "Learn how switching dimensions affects the world",
+                switchLimit: 10,
+                primary: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 3, height: 1 },
+                        { x: 5, y: 9, width: 3, height: 1 }
+                    ],
+                    crates: [],
+                    buttons: [],
+                    gates: [],
+                    teleporters: [],
+                    oneWayWalls: []
+                },
+                mirror: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 3, height: 1 },
+                        { x: 5, y: 9, width: 3, height: 1 }
+                    ],
+                    crates: [
+                        { x: 6, y: 7 }
+                    ],
+                    buttons: [],
+                    gates: [],
+                    teleporters: [],
+                    oneWayWalls: []
+                }
+            },
+            
+            // Level 2 - Basic crate puzzle
+            {
+                title: "Crate Basics",
+                description: "Move crates to create paths in both dimensions",
+                switchLimit: 10,
+                primary: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 3, height: 5 }
+                    ],
+                    crates: [
+                        { x: 6, y: 7 }
+                    ],
+                    buttons: [],
+                    gates: [],
+                    teleporters: [],
+                    oneWayWalls: []
+                },
+                mirror: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 3, height: 5 }
+                    ],
+                    crates: [],
+                    buttons: [],
+                    gates: [],
+                    teleporters: [],
+                    oneWayWalls: []
+                }
+            },
+            
+            // Level 3 - Button and gate introduction
+            {
+                title: "Button Logic",
+                description: "Use buttons to control gates in both dimensions",
+                switchLimit: 10,
+                primary: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 },
+                        { x: 9, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [],
+                    buttons: [
+                        { x: 7, y: 9 }
+                    ],
+                    gates: [
+                        { x: 7, y: 5, width: 1, height: 3 }
+                    ],
+                    teleporters: [],
+                    oneWayWalls: []
+                },
+                mirror: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 },
+                        { x: 9, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [],
+                    buttons: [
+                        { x: 7, y: 5 }
+                    ],
+                    gates: [
+                        { x: 7, y: 7, width: 1, height: 3 }
+                    ],
+                    teleporters: [],
+                    oneWayWalls: []
+                }
+            },
+            
+            // Level 4 - One-way walls introduction
+            {
+                title: "One-Way Path",
+                description: "Navigate walls that only allow movement in one direction",
+                switchLimit: 10,
+                primary: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [],
+                    buttons: [],
+                    gates: [],
+                    teleporters: [],
+                    oneWayWalls: [
+                        { x: 7, y: 7, direction: 'right' }
+                    ]
+                },
+                mirror: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [],
+                    buttons: [],
+                    gates: [],
+                    teleporters: [],
+                    oneWayWalls: [
+                        { x: 7, y: 7, direction: 'left' }
+                    ]
+                }
+            },
+            
+            // Level 5 - First boss level
+            {
+                title: "Dimensional Shift",
+                description: "Combine all mechanics to solve this puzzle",
+                switchLimit: 8,
+                primary: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 },
+                        { x: 9, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [
+                        { x: 6, y: 7 }
+                    ],
+                    buttons: [
+                        { x: 7, y: 9, controlsMirror: true }
+                    ],
+                    gates: [
+                        { x: 7, y: 5, width: 1, height: 3, mirrorControlled: true }
+                    ],
+                    teleporters: [],
+                    oneWayWalls: [
+                        { x: 11, y: 7, direction: 'right' }
+                    ]
+                },
+                mirror: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 },
+                        { x: 9, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [],
+                    buttons: [
+                        { x: 7, y: 5, controlsPrimary: true }
+                    ],
+                    gates: [
+                        { x: 7, y: 7, width: 1, height: 3, primaryControlled: true }
+                    ],
+                    teleporters: [],
+                    oneWayWalls: [
+                        { x: 11, y: 7, direction: 'left' }
+                    ]
+                }
+            },
+            
+            // Level 6 - Teleporter introduction
+            {
+                title: "Teleportation",
+                description: "Use teleporters to bypass obstacles",
+                switchLimit: 8,
+                primary: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 5, height: 1 },
+                        { x: 5, y: 9, width: 5, height: 1 }
+                    ],
+                    crates: [],
+                    buttons: [],
+                    gates: [],
+                    teleporters: [
+                        { x: 7, y: 6, targetX: 7, targetY: 8 },
+                        { x: 7, y: 8, targetX: 7, targetY: 6 }
+                    ],
+                    oneWayWalls: []
+                },
+                mirror: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 5, height: 1 },
+                        { x: 5, y: 9, width: 5, height: 1 }
+                    ],
+                    crates: [],
+                    buttons: [],
+                    gates: [],
+                    teleporters: [
+                        { x: 7, y: 6, targetX: 7, targetY: 8 },
+                        { x: 7, y: 8, targetX: 7, targetY: 6 }
+                    ],
+                    oneWayWalls: []
+                }
+            },
+            
+            // Level 7 - Dimension-specific walls
+            {
+                title: "Dimensional Walls",
+                description: "Some walls only exist in one dimension",
+                switchLimit: 8,
+                primary: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 },
+                        { x: 7, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [],
+                    buttons: [],
+                    gates: [],
+                    teleporters: [],
+                    oneWayWalls: []
+                },
+                mirror: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 },
+                        { x: 9, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [],
+                    buttons: [],
+                    gates: [],
+                    teleporters: [],
+                    oneWayWalls: []
+                }
+            },
+            
+            // Level 8 - Complex crate puzzle
+            {
+                title: "Crate Maze",
+                description: "Move crates strategically to create paths",
+                switchLimit: 8,
+                primary: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 3, height: 1 },
+                        { x: 5, y: 9, width: 3, height: 1 },
+                        { x: 9, y: 5, width: 3, height: 1 },
+                        { x: 9, y: 9, width: 3, height: 1 }
+                    ],
+                    crates: [
+                        { x: 6, y: 7 },
+                        { x: 10, y: 7 }
+                    ],
+                    buttons: [],
+                    gates: [],
+                    teleporters: [],
+                    oneWayWalls: []
+                },
+                mirror: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 3, height: 1 },
+                        { x: 5, y: 9, width: 3, height: 1 },
+                        { x: 9, y: 5, width: 3, height: 1 },
+                        { x: 9, y: 9, width: 3, height: 1 }
+                    ],
+                    crates: [
+                        { x: 6, y: 6 },
+                        { x: 6, y: 8 },
+                        { x: 10, y: 6 },
+                        { x: 10, y: 8 }
+                    ],
+                    buttons: [],
+                    gates: [],
+                    teleporters: [],
+                    oneWayWalls: []
+                }
+            },
+            
+            // Level 9 - Button combinations
+            {
+                title: "Button Combo",
+                description: "Multiple buttons control different gates",
+                switchLimit: 8,
+                primary: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 },
+                        { x: 9, y: 5, width: 1, height: 5 },
+                        { x: 13, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [],
+                    buttons: [
+                        { x: 7, y: 9 },
+                        { x: 11, y: 9 }
+                    ],
+                    gates: [
+                        { x: 7, y: 5, width: 1, height: 3 },
+                        { x: 11, y: 5, width: 1, height: 3 }
+                    ],
+                    teleporters: [],
+                    oneWayWalls: []
+                },
+                mirror: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 },
+                        { x: 9, y: 5, width: 1, height: 5 },
+                        { x: 13, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [],
+                    buttons: [
+                        { x: 7, y: 5 },
+                        { x: 11, y: 5 }
+                    ],
+                    gates: [
+                        { x: 7, y: 7, width: 1, height: 3 },
+                        { x: 11, y: 7, width: 1, height: 3 }
+                    ],
+                    teleporters: [],
+                    oneWayWalls: []
+                }
+            },
+            
+            // Level 10 - Second boss level
+            {
+                title: "Dimensional Mastery",
+                description: "Combine all mechanics to solve this complex puzzle",
+                switchLimit: 6,
+                primary: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 },
+                        { x: 9, y: 5, width: 1, height: 5 },
+                        { x: 13, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [
+                        { x: 6, y: 7 }
+                    ],
+                    buttons: [
+                        { x: 7, y: 9, controlsMirror: true },
+                        { x: 11, y: 9 }
+                    ],
+                    gates: [
+                        { x: 7, y: 5, width: 1, height: 3, mirrorControlled: true },
+                        { x: 11, y: 5, width: 1, height: 3 }
+                    ],
+                    teleporters: [
+                        { x: 14, y: 6, targetX: 14, targetY: 8 },
+                        { x: 14, y: 8, targetX: 14, y: 6 }
+                    ],
+                    oneWayWalls: [
+                        { x: 15, y: 7, direction: 'right' }
+                    ]
+                },
+                mirror: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 },
+                        { x: 9, y: 5, width: 1, height: 5 },
+                        { x: 13, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [],
+                    buttons: [
+                        { x: 7, y: 5, controlsPrimary: true },
+                        { x: 11, y: 5 }
+                    ],
+                    gates: [
+                        { x: 7, y: 7, width: 1, height: 3, primaryControlled: true },
+                        { x: 11, y: 7, width: 1, height: 3 }
+                    ],
+                    teleporters: [
+                        { x: 14, y: 6, targetX: 14, y: 8 },
+                        { x: 14, y: 8, targetX: 14, y: 6 }
+                    ],
+                    oneWayWalls: [
+                        { x: 15, y: 7, direction: 'left' }
+                    ]
+                }
+            },
+            
+            // Level 11 - More complex teleporters
+            {
+                title: "Teleporter Maze",
+                description: "Navigate a maze with teleporters that change dimensions",
+                switchLimit: 8,
+                primary: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 },
+                        { x: 9, y: 5, width: 1, height: 5 },
+                        { x: 13, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [],
+                    buttons: [],
+                    gates: [],
+                    teleporters: [
+                        { x: 7, y: 6, targetX: 11, targetY: 8, switchesDimension: true },
+                        { x: 11, y: 8, targetX: 7, targetY: 6, switchesDimension: true }
+                    ],
+                    oneWayWalls: []
+                },
+                mirror: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 },
+                        { x: 9, y: 5, width: 1, height: 5 },
+                        { x: 13, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [],
+                    buttons: [],
+                    gates: [],
+                    teleporters: [
+                        { x: 7, y: 6, targetX: 11, targetY: 8, switchesDimension: true },
+                        { x: 11, y: 8, targetX: 7, targetY: 6, switchesDimension: true }
+                    ],
+                    oneWayWalls: []
+                }
+            },
+            
+            // Level 12 - Advanced crate puzzles
+            {
+                title: "Crate Conundrum",
+                description: "Complex crate puzzles that require both dimensions",
+                switchLimit: 8,
+                primary: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 },
+                        { x: 9, y: 5, width: 1, height: 5 },
+                        { x: 13, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [
+                        { x: 6, y: 7 },
+                        { x: 10, y: 7 }
+                    ],
+                    buttons: [
+                        { x: 7, y: 9 }
+                    ],
+                    gates: [
+                        { x: 7, y: 5, width: 1, height: 3 }
+                    ],
+                    teleporters: [],
+                    oneWayWalls: []
+                },
+                mirror: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 },
+                        { x: 9, y: 5, width: 1, height: 5 },
+                        { x: 13, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [
+                        { x: 6, y: 6 },
+                        { x: 6, y: 8 }
+                    ],
+                    buttons: [
+                        { x: 7, y: 5 }
+                    ],
+                    gates: [
+                        { x: 7, y: 7, width: 1, height: 3 }
+                    ],
+                    teleporters: [],
+                    oneWayWalls: []
+                }
+            },
+            
+            // Level 13 - More complex one-way walls
+            {
+                title: "One-Way Maze",
+                description: "Navigate complex one-way wall configurations",
+                switchLimit: 8,
+                primary: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [],
+                    buttons: [],
+                    gates: [],
+                    teleporters: [],
+                    oneWayWalls: [
+                        { x: 7, y: 7, direction: 'right' },
+                        { x: 9, y: 7, direction: 'left' },
+                        { x: 11, y: 7, direction: 'right' }
+                    ]
+                },
+                mirror: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [],
+                    buttons: [],
+                    gates: [],
+                    teleporters: [],
+                    oneWayWalls: [
+                        { x: 7, y: 7, direction: 'left' },
+                        { x: 9, y: 7, direction: 'right' },
+                        { x: 11, y: 7, direction: 'left' }
+                    ]
+                }
+            },
+            
+            // Level 14 - Complex button interactions
+            {
+                title: "Button Mastery",
+                description: "Buttons that control gates in both dimensions",
+                switchLimit: 8,
+                primary: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 },
+                        { x: 9, y: 5, width: 1, height: 5 },
+                        { x: 13, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [],
+                    buttons: [
+                        { x: 7, y: 9, controlsMirror: true },
+                        { x: 11, y: 9 }
+                    ],
+                    gates: [
+                        { x: 7, y: 5, width: 1, height: 3, mirrorControlled: true },
+                        { x: 11, y: 5, width: 1, height: 3 }
+                    ],
+                    teleporters: [],
+                    oneWayWalls: []
+                },
+                mirror: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 },
+                        { x: 9, y: 5, width: 1, height: 5 },
+                        { x: 13, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [],
+                    buttons: [
+                        { x: 7, y: 5, controlsPrimary: true },
+                        { x: 11, y: 5 }
+                    ],
+                    gates: [
+                        { x: 7, y: 7, width: 1, height: 3, primaryControlled: true },
+                        { x: 11, y: 7, width: 1, height: 3 }
+                    ],
+                    teleporters: [],
+                    oneWayWalls: []
+                }
+            },
+            
+            // Level 15 - Third boss level
+            {
+                title: "Dimensional Puzzle",
+                description: "The ultimate test of dimensional mastery",
+                switchLimit: 6,
+                primary: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 },
+                        { x: 9, y: 5, width: 1, height: 5 },
+                        { x: 13, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [
+                        { x: 6, y: 7 },
+                        { x: 10, y: 7 }
+                    ],
+                    buttons: [
+                        { x: 7, y: 9, controlsMirror: true },
+                        { x: 11, y: 9 }
+                    ],
+                    gates: [
+                        { x: 7, y: 5, width: 1, height: 3, mirrorControlled: true },
+                        { x: 11, y: 5, width: 1, height: 3 }
+                    ],
+                    teleporters: [
+                        { x: 14, y: 6, targetX: 14, targetY: 8, switchesDimension: true },
+                        { x: 14, y: 8, targetX: 14, y: 6, switchesDimension: true }
+                    ],
+                    oneWayWalls: [
+                        { x: 15, y: 7, direction: 'right' },
+                        { x: 3, y: 7, direction: 'right' }
+                    ]
+                },
+                mirror: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 },
+                        { x: 9, y: 5, width: 1, height: 5 },
+                        { x: 13, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [
+                        { x: 6, y: 6 },
+                        { x: 6, y: 8 }
+                    ],
+                    buttons: [
+                        { x: 7, y: 5, controlsPrimary: true },
+                        { x: 11, y: 5 }
+                    ],
+                    gates: [
+                        { x: 7, y: 7, width: 1, height: 3, primaryControlled: true },
+                        { x: 11, y: 7, width: 1, height: 3 }
+                    ],
+                    teleporters: [
+                        { x: 14, y: 6, targetX: 14, y: 8, switchesDimension: true },
+                        { x: 14, y: 8, targetX: 14, y: 6, switchesDimension: true }
+                    ],
+                    oneWayWalls: [
+                        { x: 15, y: 7, direction: 'left' },
+                        { x: 3, y: 7, direction: 'left' }
+                    ]
+                }
+            },
+            
+            // Levels 16-49 would follow similar patterns with increasing complexity
+            // Each introducing new mechanics or combinations
+            
+            // Level 50 - Final challenge
+            {
+                title: "The Final Reflection",
+                description: "The ultimate test of dimensional mastery",
+                switchLimit: 4,
+                primary: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 },
+                        { x: 9, y: 5, width: 1, height: 5 },
+                        { x: 13, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [
+                        { x: 6, y: 7 },
+                        { x: 10, y: 7 }
+                    ],
+                    buttons: [
+                        { x: 7, y: 9, controlsMirror: true },
+                        { x: 11, y: 9 }
+                    ],
+                    gates: [
+                        { x: 7, y: 5, width: 1, height: 3, mirrorControlled: true },
+                        { x: 11, y: 5, width: 1, height: 3 }
+                    ],
+                    teleporters: [
+                        { x: 14, y: 6, targetX: 14, y: 8, switchesDimension: true },
+                        { x: 14, y: 8, targetX: 14, y: 6, switchesDimension: true }
+                    ],
+                    oneWayWalls: [
+                        { x: 15, y: 7, direction: 'right' },
+                        { x: 3, y: 7, direction: 'right' }
+                    ]
+                },
+                mirror: {
+                    player: { x: 2, y: 7 },
+                    portal: { x: 17, y: 7 },
+                    walls: [
+                        { x: 5, y: 5, width: 1, height: 5 },
+                        { x: 9, y: 5, width: 1, height: 5 },
+                        { x: 13, y: 5, width: 1, height: 5 }
+                    ],
+                    crates: [
+                        { x: 6, y: 6 },
+                        { x: 6, y: 8 }
+                    ],
+                    buttons: [
+                        { x: 7, y: 5, controlsPrimary: true },
+                        { x: 11, y: 5 }
+                    ],
+                    gates: [
+                        { x: 7, y: 7, width: 1, height: 3, primaryControlled: true },
+                        { x: 11, y: 7, width: 1, height: 3 }
+                    ],
+                    teleporters: [
+                        { x: 14, y: 6, targetX: 14, y: 8, switchesDimension: true },
+                        { x: 14, y: 8, targetX: 14, y: 6, switchesDimension: true }
+                    ],
+                    oneWayWalls: [
+                        { x: 15, y: 7, direction: 'left' },
+                        { x: 3, y: 7, direction: 'left' }
+                    ]
+                }
+            }
+        ];
+
+        // Initialize Game
+        function initGame() {
+            // Load saved progress
+            loadProgress();
+            
+            // Load first level
+            loadLevel(currentLevel);
+            startTime = Date.now();
+            gameInterval = setInterval(updateGameTime, 1000);
+            
+            // Set up event listeners
+            document.addEventListener('keydown', handleKeyDown);
+            dimensionBtn.addEventListener('click', switchDimension);
+            document.getElementById('reset-btn').addEventListener('click', () => loadLevel(currentLevel));
+            document.getElementById('hint-btn').addEventListener('click', showHint);
+            document.getElementById('levels-btn').addEventListener('click', showLevelSelect);
+            document.getElementById('close-levels-btn').addEventListener('click', hideLevelSelect);
+            document.getElementById('replay-btn').addEventListener('click', replayLevel);
+            document.getElementById('next-btn').addEventListener('click', nextLevel);
+            
+            // Populate level select
+            updateLevelSelect();
+            
+            // Show tutorial briefly
+            setTimeout(() => {
+                tutorial.classList.add('show');
+                setTimeout(() => {
+                    tutorial.classList.remove('show');
+                }, 5000);
+            }, 1000);
+            
+            // Set up dimension indicators
+            updateDimensionIndicators();
+            
+            // Start game loop
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Update dimension border indicators
+        function updateDimensionIndicators() {
+            const canvasWidth = canvas.width / scale;
+            const canvasHeight = canvas.height / scale;
+            
+            if (currentDimension === 'primary') {
+                primaryIndicator.style.display = 'block';
+                primaryIndicator.style.left = '0';
+                primaryIndicator.style.top = '0';
+                primaryIndicator.style.width = `${canvasWidth}px`;
+                primaryIndicator.style.height = `${canvasHeight}px`;
+                
+                mirrorIndicator.style.display = 'none';
+            } else {
+                mirrorIndicator.style.display = 'block';
+                mirrorIndicator.style.left = '0';
+                mirrorIndicator.style.top = '0';
+                mirrorIndicator.style.width = `${canvasWidth}px`;
+                mirrorIndicator.style.height = `${canvasHeight}px`;
+                
+                primaryIndicator.style.display = 'none';
+            }
+        }
+
+        // Load progress from localStorage
+        function loadProgress() {
+            const savedProgress = localStorage.getItem('mirrorWorldProgress');
+            if (savedProgress) {
+                try {
+                    const progress = JSON.parse(savedProgress);
+                    highestUnlockedLevel = progress.highestUnlockedLevel || 0;
+                    completedLevels = new Set(progress.completedLevels || []);
+                } catch (e) {
+                    console.error("Failed to load progress:", e);
+                }
+            }
+        }
+
+        // Save progress to localStorage
+        function saveProgress() {
+            const progress = {
+                highestUnlockedLevel,
+                completedLevels: Array.from(completedLevels)
+            };
+            localStorage.setItem('mirrorWorldProgress', JSON.stringify(progress));
+        }
+
+        // Load Level
+        function loadLevel(levelIndex) {
+            if (levelIndex < 0 || levelIndex >= levels.length) return;
+            
+            const level = levels[levelIndex];
+            currentLevel = levelIndex;
+            
+            // Reset particles
+            particles = [];
+            
+            // Reset game state
+            currentDimension = 'primary';
+            dimensionSwitches = 0;
+            switchLimit = level.switchLimit || BASE_SWITCH_LIMIT;
+            completedPrimary = false;
+            completedMirror = false;
+            
+            // Update UI
+            document.querySelector('.level-title').textContent = `Level ${levelIndex + 1}: ${level.title}`;
+            document.querySelector('.level-description').textContent = level.description;
+            levelDisplay.textContent = levelIndex + 1;
+            
+            // Update difficulty meter
+            updateDifficultyMeter(levelIndex);
+            
+            // Update progress bar
+            updateProgressBar();
+            updateDimensionDisplay();
+            updateSwitchesDisplay();
+            updateDimensionIndicators();
+            
+            // Reset all arrays
+            walls = [];
+            mirrorWalls = [];
+            crates = [];
+            mirrorCrates = [];
+            buttons = [];
+            mirrorButtons = [];
+            gates = [];
+            mirrorGates = [];
+            teleporters = [];
+            mirrorTeleporters = [];
+            oneWayWalls = [];
+            mirrorOneWayWalls = [];
+            dimensionOnlyWalls = [];
+            
+            // Load primary world
+            const primary = level.primary;
+            player = { 
+                x: primary.player.x, 
+                y: primary.player.y,
+                targetX: primary.player.x,
+                targetY: primary.player.y,
+                moving: false
+            };
+            portal = { ...primary.portal };
+            walls = primary.walls.map(wall => ({ ...wall }));
+            crates = primary.crates.map(crate => ({ ...crate }));
+            buttons = primary.buttons.map(button => ({ ...button }));
+            gates = primary.gates.map(gate => ({ ...gate }));
+            teleporters = primary.teleporters.map(t => ({ ...t }));
+            oneWayWalls = primary.oneWayWalls.map(w => ({ ...w }));
+            
+            // Load mirror world
+            const mirror = level.mirror;
+            mirrorPlayer = { 
+                x: mirror.player.x, 
+                y: mirror.player.y,
+                targetX: mirror.player.x,
+                targetY: mirror.player.y,
+                moving: false
+            };
+            mirrorPortal = { ...mirror.portal };
+            mirrorWalls = mirror.walls.map(wall => ({ ...wall }));
+            mirrorCrates = mirror.crates.map(crate => ({ ...crate }));
+            mirrorButtons = mirror.buttons.map(button => ({ ...button }));
+            mirrorGates = mirror.gates.map(gate => ({ ...gate }));
+            mirrorTeleporters = mirror.teleporters.map(t => ({ ...t }));
+            mirrorOneWayWalls = mirror.oneWayWalls.map(w => ({ ...w }));
+        }
+
+        // Update difficulty meter
+        function updateDifficultyMeter(levelIndex) {
+            const dots = document.querySelectorAll('.difficulty-dot');
+            const difficulty = Math.min(5, Math.floor(levelIndex / 10) + 1);
+            
+            dots.forEach((dot, index) => {
+                if (index < difficulty) {
+                    dot.classList.add('active');
+                } else {
+                    dot.classList.remove('active');
+                }
+            });
+        }
+
+        // Load Level with transition
+        function transitionToLevel(levelIndex) {
+            if (levelIndex < 0 || levelIndex >= levels.length) return;
+            if (isTransitioning) return;
+            
+            isTransitioning = true;
+            transitionOverlay.style.opacity = '1';
+            
+            setTimeout(() => {
+                currentLevel = levelIndex;
+                loadLevel(levelIndex);
+                transitionOverlay.style.opacity = '0';
+                
+                // Update highest unlocked level if needed
+                if (levelIndex > highestUnlockedLevel) {
+                    highestUnlockedLevel = levelIndex;
+                    saveProgress();
+                }
+                
+                setTimeout(() => {
+                    isTransitioning = false;
+                }, 400);
+            }, 400);
+            
+            hideLevelSelect();
+            
+            // Reset timer
+            startTime = Date.now();
+            gameTime = 0;
+            if (gameInterval) clearInterval(gameInterval);
+            gameInterval = setInterval(updateGameTime, 1000);
+        }
+
+        // Update progress bar
+        function updateProgressBar() {
+            const progress = (currentLevel / (levels.length - 1)) * 100;
+            progressBar.style.width = `${progress}%`;
+        }
+
+        // Game Loop
+        function gameLoop() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid background
+            drawGrid();
+            
+            // Update player positions smoothly
+            updatePlayerPosition(player);
+            updatePlayerPosition(mirrorPlayer);
+            
+            // Update particles
+            updateParticles();
+            
+            // Draw current dimension
+            if (currentDimension === 'primary') {
+                drawWorld(player, portal, walls, crates, buttons, gates, teleporters, oneWayWalls, false);
+                // Draw mirror world faintly in the background
+                ctx.globalAlpha = 0.2;
+                drawWorld(mirrorPlayer, mirrorPortal, mirrorWalls, mirrorCrates, mirrorButtons, mirrorGates, mirrorTeleporters, mirrorOneWayWalls, true);
+                ctx.globalAlpha = 1.0;
+            } else {
+                drawWorld(mirrorPlayer, mirrorPortal, mirrorWalls, mirrorCrates, mirrorButtons, mirrorGates, mirrorTeleporters, mirrorOneWayWalls, true);
+                // Draw primary world faintly in the background
+                ctx.globalAlpha = 0.2;
+                drawWorld(player, portal, walls, crates, buttons, gates, teleporters, oneWayWalls, false);
+                ctx.globalAlpha = 1.0;
+            }
+            
+            // Draw particles
+            drawParticles();
+            
+            // Create portal particles periodically
+            const now = Date.now();
+            if (now - lastPortalParticleTime > 200) {
+                createPortalParticles();
+                lastPortalParticleTime = now;
+            }
+            
+            // Update dimension button state
+            updateDimensionButton();
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Update dimension button visual state
+        function updateDimensionButton() {
+            // Pulse effect when switches are running low
+            if (switchLimit - dimensionSwitches <= 3) {
+                const pulse = Math.sin(Date.now() / 300) * 0.1 + 1;
+                dimensionBtn.style.transform = `scale(${pulse})`;
+                
+                // Change button color when very low
+                if (switchLimit - dimensionSwitches <= 1) {
+                    dimensionBtn.classList.remove('btn-primary');
+                    dimensionBtn.classList.add('btn-warning');
+                } else {
+                    dimensionBtn.classList.remove('btn-warning');
+                    dimensionBtn.classList.add('btn-primary');
+                }
+            } else {
+                dimensionBtn.style.transform = '';
+                dimensionBtn.classList.remove('btn-warning');
+                dimensionBtn.classList.add('btn-primary');
+            }
+        }
+
+        // Create particles around portals
+        function createPortalParticles() {
+            // Primary portal particles
+            for (let i = 0; i < PORTAL_PARTICLES / 2; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const distance = Math.random() * PORTAL_SIZE / 2;
+                const speed = 0.5 + Math.random() * 1.5;
+                
+                particles.push({
+                    x: (portal.x + 0.5) * TILE_SIZE + Math.cos(angle) * distance,
+                    y: (portal.y + 0.5) * TILE_SIZE + Math.sin(angle) * distance,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 1 + Math.random() * 3,
+                    color: '#007aff',
+                    life: PARTICLE_LIFETIME,
+                    maxLife: PARTICLE_LIFETIME
+                });
+            }
+            
+            // Mirror portal particles
+            for (let i = 0; i < PORTAL_PARTICLES / 2; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const distance = Math.random() * PORTAL_SIZE / 2;
+                const speed = 0.5 + Math.random() * 1.5;
+                
+                particles.push({
+                    x: (mirrorPortal.x + 0.5) * TILE_SIZE + Math.cos(angle) * distance,
+                    y: (mirrorPortal.y + 0.5) * TILE_SIZE + Math.sin(angle) * distance,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 1 + Math.random() * 3,
+                    color: '#32d74b',
+                    life: PARTICLE_LIFETIME,
+                    maxLife: PARTICLE_LIFETIME
+                });
+            }
+        }
+
+        // Update particles
+        function updateParticles() {
+            const now = Date.now();
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                
+                // Update position
+                p.x += p.vx;
+                p.y += p.vy;
+                
+                // Update lifetime
+                p.life -= 16; // Approximate 60fps frame time
+                
+                // Remove dead particles
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        // Draw particles
+        function drawParticles() {
+            particles.forEach(p => {
+                const alpha = p.life / p.maxLife;
+                ctx.fillStyle = `${p.color}${Math.floor(alpha * 255).toString(16).padStart(2, '0')}`;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        // Smooth player movement
+        function updatePlayerPosition(p) {
+            if (p.moving) {
+                const dx = p.targetX - p.x;
+                const dy = p.targetY - p.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < 0.01) {
+                    p.x = p.targetX;
+                    p.y = p.targetY;
+                    p.moving = false;
+                    
+                    // Check if there's a pending move
+                    if (pendingMove) {
+                        const { dx, dy } = pendingMove;
+                        pendingMove = null;
+                        movePlayer(dx, dy);
+                    }
+                    
+                    // Check portal after movement completes
+                    checkPortal();
+                    
+                    // Check teleporters after movement completes
+                    checkTeleporters();
+                } else {
+                    p.x += dx * MOVE_SPEED;
+                    p.y += dy * MOVE_SPEED;
+                }
+            }
+        }
+
+        // Draw Grid
+        function drawGrid() {
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 0.5;
+            
+            for (let x = 0; x < canvas.width / scale; x += TILE_SIZE) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height / scale);
+                ctx.stroke();
+            }
+            
+            for (let y = 0; y < canvas.height / scale; y += TILE_SIZE) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width / scale, y);
+                ctx.stroke();
+            }
+        }
+
+        // Draw World
+        function drawWorld(p, port, w, c, b, g, t, ow, isMirror) {
+            // Draw walls with subtle shadow
+            ctx.fillStyle = isMirror ? '#d1d1d6' : '#a5a5aa';
+            w.forEach(wall => {
+                // Shadow effect
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+                ctx.shadowBlur = 4;
+                ctx.shadowOffsetY = 2;
+                
+                ctx.fillRect(
+                    wall.x * TILE_SIZE,
+                    wall.y * TILE_SIZE,
+                    wall.width * TILE_SIZE,
+                    wall.height * TILE_SIZE
+                );
+                
+                // Reset shadow
+                ctx.shadowColor = 'transparent';
+            });
+            
+            // Draw one-way walls with arrows
+            ow.forEach(wall => {
+                ctx.fillStyle = isMirror ? '#8e8e93' : '#636366';
+                
+                // Draw base
+                ctx.fillRect(
+                    wall.x * TILE_SIZE,
+                    wall.y * TILE_SIZE,
+                    TILE_SIZE,
+                    TILE_SIZE
+                );
+                
+                // Draw arrow
+                ctx.fillStyle = '#ffffff';
+                const centerX = (wall.x + 0.5) * TILE_SIZE;
+                const centerY = (wall.y + 0.5) * TILE_SIZE;
+                const size = TILE_SIZE * 0.3;
+                
+                ctx.beginPath();
+                switch (wall.direction) {
+                    case 'up':
+                        ctx.moveTo(centerX, centerY - size);
+                        ctx.lineTo(centerX - size, centerY + size * 0.3);
+                        ctx.lineTo(centerX + size, centerY + size * 0.3);
+                        break;
+                    case 'down':
+                        ctx.moveTo(centerX, centerY + size);
+                        ctx.lineTo(centerX - size, centerY - size * 0.3);
+                        ctx.lineTo(centerX + size, centerY - size * 0.3);
+                        break;
+                    case 'left':
+                        ctx.moveTo(centerX - size, centerY);
+                        ctx.lineTo(centerX + size * 0.3, centerY - size);
+                        ctx.lineTo(centerX + size * 0.3, centerY + size);
+                        break;
+                    case 'right':
+                        ctx.moveTo(centerX + size, centerY);
+                        ctx.lineTo(centerX - size * 0.3, centerY - size);
+                        ctx.lineTo(centerX - size * 0.3, centerY + size);
+                        break;
+                }
+                ctx.fill();
+            });
+            
+            // Draw gates (if not activated)
+            ctx.fillStyle = isMirror ? '#ff3b30' : '#ff453a';
+            g.forEach(gate => {
+                if (!isGateOpen(gate, b, isMirror ? 'mirror' : 'primary')) {
+                    // Gate shadow
+                    ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+                    ctx.shadowBlur = 6;
+                    ctx.shadowOffsetY = 3;
+                    
+                    ctx.fillRect(
+                        gate.x * TILE_SIZE,
+                        gate.y * TILE_SIZE,
+                        gate.width * TILE_SIZE,
+                        gate.height * TILE_SIZE
+                    );
+                    
+                    ctx.shadowColor = 'transparent';
+                    
+                    // Draw gate bars
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+                    ctx.lineWidth = 2;
+                    const barSpacing = TILE_SIZE / 4;
+                    
+                    for (let i = 0; i < gate.width; i++) {
+                        for (let j = 0; j < gate.height; j++) {
+                            const x = (gate.x + i) * TILE_SIZE;
+                            const y = (gate.y + j) * TILE_SIZE;
+                            
+                            // Horizontal bars
+                            for (let k = 1; k < 4; k++) {
+                                ctx.beginPath();
+                                ctx.moveTo(x, y + k * barSpacing);
+                                ctx.lineTo(x + TILE_SIZE, y + k * barSpacing);
+                                ctx.stroke();
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Draw buttons with pulsing effect
+            const pulse = Math.sin(Date.now() / 300) * 0.1 + 1;
+            ctx.fillStyle = isMirror ? '#5856d6' : '#5e5ce6';
+            b.forEach(button => {
+                // Check if button is pressed
+                const pressed = isButtonPressed(button, isMirror ? 'mirror' : 'primary');
+                const size = pressed ? TILE_SIZE * 0.25 : TILE_SIZE * 0.3 * pulse;
+                
+                ctx.beginPath();
+                ctx.arc(
+                    (button.x + 0.5) * TILE_SIZE,
+                    (button.y + 0.5) * TILE_SIZE,
+                    size,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+                
+                // Button highlight
+                if (!pressed) {
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(
+                        (button.x + 0.5) * TILE_SIZE,
+                        (button.y + 0.5) * TILE_SIZE,
+                        size + 2,
+                        0,
+                        Math.PI * 2
+                    );
+                    ctx.stroke();
+                }
+            });
+            
+            // Draw crates with shadow and highlight
+            ctx.fillStyle = isMirror ? '#af52de' : '#bf5af2';
+            c.forEach(crate => {
+                // Crate shadow
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+                ctx.shadowBlur = 6;
+                ctx.shadowOffsetY = 3;
+                
+                ctx.fillRect(
+                    (crate.x + 0.1) * TILE_SIZE,
+                    (crate.y + 0.1) * TILE_SIZE,
+                    TILE_SIZE * 0.8,
+                    TILE_SIZE * 0.8
+                );
+                
+                ctx.shadowColor = 'transparent';
+                
+                // Crate highlight
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(
+                    (crate.x + 0.1) * TILE_SIZE,
+                    (crate.y + 0.1) * TILE_SIZE,
+                    TILE_SIZE * 0.8,
+                    TILE_SIZE * 0.8
+                );
+                
+                // Draw crate handle
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(
+                    (crate.x + 0.35) * TILE_SIZE,
+                    (crate.y + 0.2) * TILE_SIZE,
+                    TILE_SIZE * 0.3,
+                    TILE_SIZE * 0.1
+                );
+                ctx.fillStyle = isMirror ? '#af52de' : '#bf5af2';
+            });
+            
+            // Draw teleporters
+            t.forEach(tele => {
+                const gradient = ctx.createRadialGradient(
+                    (tele.x + 0.5) * TILE_SIZE,
+                    (tele.y + 0.5) * TILE_SIZE,
+                    0,
+                    (tele.x + 0.5) * TILE_SIZE,
+                    (tele.y + 0.5) * TILE_SIZE,
+                    TILE_SIZE * 0.4
+                );
+                
+                gradient.addColorStop(0, isMirror ? '#32d74b' : '#007aff');
+                gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(
+                    (tele.x + 0.5) * TILE_SIZE,
+                    (tele.y + 0.5) * TILE_SIZE,
+                    TILE_SIZE * 0.4,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+                
+                // Draw teleporter symbol
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('⇄', (tele.x + 0.5) * TILE_SIZE, (tele.y + 0.5) * TILE_SIZE);
+            });
+            
+            // Draw portal with glowing effect
+            const glowSize = PORTAL_SIZE / 2 + Math.sin(Date.now() / 200) * 3;
+            const portalGradient = ctx.createRadialGradient(
+                (port.x + 0.5) * TILE_SIZE,
+                (port.y + 0.5) * TILE_SIZE,
+                5,
+                (port.x + 0.5) * TILE_SIZE,
+                (port.y + 0.5) * TILE_SIZE,
+                glowSize
+            );
+            
+            if (isMirror) {
+                portalGradient.addColorStop(0, '#32d74b');
+                portalGradient.addColorStop(1, 'rgba(50, 215, 75, 0)');
+            } else {
+                portalGradient.addColorStop(0, '#0a84ff');
+                portalGradient.addColorStop(1, 'rgba(10, 132, 255, 0)');
+            }
+            
+            // Portal glow
+            ctx.fillStyle = portalGradient;
+            ctx.beginPath();
+            ctx.arc(
+                (port.x + 0.5) * TILE_SIZE,
+                (port.y + 0.5) * TILE_SIZE,
+                glowSize,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+            
+            // Portal core
+            const coreGradient = ctx.createRadialGradient(
+                (port.x + 0.5) * TILE_SIZE,
+                (port.y + 0.5) * TILE_SIZE,
+                0,
+                (port.x + 0.5) * TILE_SIZE,
+                (port.y + 0.5) * TILE_SIZE,
+                PORTAL_SIZE / 2
+            );
+            
+            if (isMirror) {
+                coreGradient.addColorStop(0, '#ffffff');
+                coreGradient.addColorStop(1, '#32d74b');
+            } else {
+                coreGradient.addColorStop(0, '#ffffff');
+                coreGradient.addColorStop(1, '#0a84ff');
+            }
+            
+            ctx.fillStyle = coreGradient;
+            ctx.beginPath();
+            ctx.arc(
+                (port.x + 0.5) * TILE_SIZE,
+                (port.y + 0.5) * TILE_SIZE,
+                PORTAL_SIZE / 2,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+            
+            // Draw player with shadow and smooth movement
+            const playerGradient = ctx.createRadialGradient(
+                (p.x + 0.5) * TILE_SIZE,
+                (p.y + 0.5) * TILE_SIZE,
+                PLAYER_SIZE * 0.3,
+                (p.x + 0.5) * TILE_SIZE,
+                (p.y + 0.5) * TILE_SIZE,
+                PLAYER_SIZE / 2
+            );
+            
+            if (isMirror) {
+                playerGradient.addColorStop(0, '#ffd60a');
+                playerGradient.addColorStop(1, '#ff9f0a');
+            } else {
+                playerGradient.addColorStop(0, '#ff375f');
+                playerGradient.addColorStop(1, '#ff2d55');
+            }
+            
+            // Player shadow
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+            ctx.shadowBlur = 8;
+            ctx.shadowOffsetY = 4;
+            
+            ctx.fillStyle = playerGradient;
+            ctx.beginPath();
+            ctx.arc(
+                (p.x + 0.5) * TILE_SIZE,
+                (p.y + 0.5) * TILE_SIZE,
+                PLAYER_SIZE / 2,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+            
+            ctx.shadowColor = 'transparent';
+            
+            // Draw player eyes to indicate direction
+            const eyeX = p.targetX - p.x;
+            const eyeY = p.targetY - p.y;
+            const eyeDir = Math.atan2(eyeY, eyeX);
+            const eyeOffsetX = Math.cos(eyeDir) * 3;
+            const eyeOffsetY = Math.sin(eyeDir) * 3;
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(
+                (p.x + 0.5) * TILE_SIZE - 4 + eyeOffsetX,
+                (p.y + 0.5) * TILE_SIZE - 2 + eyeOffsetY,
+                3,
+                0,
+                Math.PI * 2
+            );
+            ctx.arc(
+                (p.x + 0.5) * TILE_SIZE + 4 + eyeOffsetX,
+                (p.y + 0.5) * TILE_SIZE - 2 + eyeOffsetY,
+                3,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+            
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(
+                (p.x + 0.5) * TILE_SIZE - 4 + eyeOffsetX,
+                (p.y + 0.5) * TILE_SIZE - 2 + eyeOffsetY,
+                1.5,
+                0,
+                Math.PI * 2
+            );
+            ctx.arc(
+                (p.x + 0.5) * TILE_SIZE + 4 + eyeOffsetX,
+                (p.y + 0.5) * TILE_SIZE - 2 + eyeOffsetY,
+                1.5,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+        }
+
+        // Check if button is pressed
+        function isButtonPressed(button, dimension) {
+            const activePlayer = dimension === 'primary' ? player : mirrorPlayer;
+            const activeCrates = dimension === 'primary' ? crates : mirrorCrates;
+            
+            // Check if player is on button
+            if (Math.floor(activePlayer.x) === button.x && Math.floor(activePlayer.y) === button.y) {
+                return true;
+            }
+            
+            // Check if crate is on button
+            for (const crate of activeCrates) {
+                if (crate.x === button.x && crate.y === button.y) {
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
+        // Check if gate is open
+        function isGateOpen(gate, buttons, dimension) {
+            // Check if this gate is controlled by buttons from the other dimension
+            if (gate.mirrorControlled && dimension === 'primary') {
+                for (const button of mirrorButtons) {
+                    if (button.controlsPrimary && isButtonPressed(button, 'mirror')) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            
+            if (gate.primaryControlled && dimension === 'mirror') {
+                for (const button of buttons) {
+                    if (button.controlsMirror && isButtonPressed(button, 'primary')) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            
+            // Normal gate behavior
+            for (const button of buttons) {
+                if (isButtonPressed(button, dimension)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Check teleporters
+        function checkTeleporters() {
+            const activePlayer = currentDimension === 'primary' ? player : mirrorPlayer;
+            const activeTeleporters = currentDimension === 'primary' ? teleporters : mirrorTeleporters;
+            
+            for (const tele of activeTeleporters) {
+                if (Math.floor(activePlayer.x) === tele.x && Math.floor(activePlayer.y) === tele.y) {
+                    // Teleport the player
+                    activePlayer.x = tele.targetX;
+                    activePlayer.y = tele.targetY;
+                    activePlayer.targetX = tele.targetX;
+                    activePlayer.targetY = tele.targetY;
+                    activePlayer.moving = false;
+                    
+                    // Check if teleporter switches dimension
+                    if (tele.switchesDimension) {
+                        setTimeout(() => {
+                            switchDimension();
+                        }, 200);
+                    }
+                    
+                    // Create teleport particles
+                    for (let i = 0; i < 20; i++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const speed = 1 + Math.random() * 3;
+                        
+                        particles.push({
+                            x: (tele.x + 0.5) * TILE_SIZE,
+                            y: (tele.y + 0.5) * TILE_SIZE,
+                            vx: Math.cos(angle) * speed,
+                            vy: Math.sin(angle) * speed,
+                            size: 2 + Math.random() * 4,
+                            color: currentDimension === 'primary' ? '#007aff' : '#32d74b',
+                            life: PARTICLE_LIFETIME,
+                            maxLife: PARTICLE_LIFETIME
+                        });
+                        
+                        particles.push({
+                            x: (tele.targetX + 0.5) * TILE_SIZE,
+                            y: (tele.targetY + 0.5) * TILE_SIZE,
+                            vx: Math.cos(angle + Math.PI) * speed,
+                            vy: Math.sin(angle + Math.PI) * speed,
+                            size: 2 + Math.random() * 4,
+                            color: currentDimension === 'primary' ? '#007aff' : '#32d74b',
+                            life: PARTICLE_LIFETIME,
+                            maxLife: PARTICLE_LIFETIME
+                        });
+                    }
+                    
+                    break;
+                }
+            }
+        }
+
+        // Handle Key Presses
+        function handleKeyDown(e) {
+            if (isTransitioning) return;
+            
+            if (e.key === ' ' || e.key === 'Spacebar') {
+                switchDimension();
+                return;
+            }
+            
+            let dx = 0, dy = 0;
+            
+            switch (e.key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    dy = -1;
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    dy = 1;
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    dx = -1;
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    dx = 1;
+                    break;
+                case 'r':
+                case 'R':
+                    loadLevel(currentLevel);
+                    return;
+                case 'm':
+                case 'M':
+                    showLevelSelect();
+                    return;
+                default:
+                    return;
+            }
+            
+            movePlayer(dx, dy);
+        }
+
+        // Move Player
+        function movePlayer(dx, dy) {
+            if (isTransitioning) return;
+            
+            const activePlayer = currentDimension === 'primary' ? player : mirrorPlayer;
+            
+            // If player is already moving, queue the next move
+            if (activePlayer.moving) {
+                pendingMove = { dx, dy };
+                return;
+            }
+            
+            const activeWalls = currentDimension === 'primary' ? walls : mirrorWalls;
+            const activeCrates = currentDimension === 'primary' ? crates : mirrorCrates;
+            const activeGates = currentDimension === 'primary' ? gates : mirrorGates;
+            const activeButtons = currentDimension === 'primary' ? buttons : mirrorButtons;
+            const activeOneWayWalls = currentDimension === 'primary' ? oneWayWalls : mirrorOneWayWalls;
+            
+            const newX = activePlayer.targetX + dx;
+            const newY = activePlayer.targetY + dy;
+            
+            // Check boundaries
+            if (newX < 0 || newX >= LEVEL_WIDTH ||
+                newY < 0 || newY >= LEVEL_HEIGHT) {
+                return;
+            }
+            
+            // Check walls
+            for (const wall of activeWalls) {
+                if (newX >= wall.x && newX < wall.x + wall.width &&
+                    newY >= wall.y && newY < wall.y + wall.height) {
+                    return;
+                }
+            }
+            
+            // Check one-way walls
+            for (const wall of activeOneWayWalls) {
+                if (Math.floor(newX) === wall.x && Math.floor(newY) === wall.y) {
+                    // Check if movement is allowed
+                    if ((wall.direction === 'up' && dy === 1) ||
+                        (wall.direction === 'down' && dy === -1) ||
+                        (wall.direction === 'left' && dx === 1) ||
+                        (wall.direction === 'right' && dx === -1)) {
+                        return; // Block movement
+                    }
+                }
+            }
+            
+            // Check gates (if not open)
+            for (const gate of activeGates) {
+                if (!isGateOpen(gate, activeButtons, currentDimension)) {
+                    if (newX >= gate.x && newX < gate.x + gate.width &&
+                        newY >= gate.y && newY < gate.y + gate.height) {
+                        return;
+                    }
+                }
+            }
+            
+            // Check crates
+            for (const crate of activeCrates) {
+                if (Math.floor(newX) === crate.x && Math.floor(newY) === crate.y) {
+                    // Try to move crate
+                    const crateNewX = crate.x + dx;
+                    const crateNewY = crate.y + dy;
+                    
+                    // Check crate boundaries
+                    if (crateNewX < 0 || crateNewX >= LEVEL_WIDTH ||
+                        crateNewY < 0 || crateNewY >= LEVEL_HEIGHT) {
+                        return;
+                    }
+                    
+                    // Check crate vs walls
+                    for (const wall of activeWalls) {
+                        if (crateNewX >= wall.x && crateNewX < wall.x + wall.width &&
+                            crateNewY >= wall.y && crateNewY < wall.y + wall.height) {
+                            return;
+                        }
+                    }
+                    
+                    // Check crate vs one-way walls
+                    for (const wall of activeOneWayWalls) {
+                        if (Math.floor(crateNewX) === wall.x && Math.floor(crateNewY) === wall.y) {
+                            // Crates can't be pushed through one-way walls
+                            return;
+                        }
+                    }
+                    
+                    // Check crate vs gates (if not open)
+                    for (const gate of activeGates) {
+                        if (!isGateOpen(gate, activeButtons, currentDimension)) {
+                            if (crateNewX >= gate.x && crateNewX < gate.x + gate.width &&
+                                crateNewY >= gate.y && crateNewY < gate.y + gate.height) {
+                                return;
+                            }
+                        }
+                    }
+                    
+                    // Check crate vs other crates
+                    for (const otherCrate of activeCrates) {
+                        if (crate !== otherCrate && crateNewX === otherCrate.x && crateNewY === otherCrate.y) {
+                            return;
+                        }
+                    }
+                    
+                    // Move the crate
+                    crate.x = crateNewX;
+                    crate.y = crateNewY;
+                    break;
+                }
+            }
+            
+            // Set target position for smooth movement
+            activePlayer.targetX = newX;
+            activePlayer.targetY = newY;
+            activePlayer.moving = true;
+        }
+
+        // Check Portal
+        function checkPortal() {
+            const activePlayer = currentDimension === 'primary' ? player : mirrorPlayer;
+            const activePortal = currentDimension === 'primary' ? portal : mirrorPortal;
+            
+            if (Math.floor(activePlayer.x) === activePortal.x && 
+                Math.floor(activePlayer.y) === activePortal.y) {
+                
+                if (currentDimension === 'primary') {
+                    completedPrimary = true;
+                } else {
+                    completedMirror = true;
+                }
+                
+                // Create portal particles
+                for (let i = 0; i < 20; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 1 + Math.random() * 3;
+                    
+                    particles.push({
+                        x: (activePortal.x + 0.5) * TILE_SIZE,
+                        y: (activePortal.y + 0.5) * TILE_SIZE,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        size: 2 + Math.random() * 4,
+                        color: currentDimension === 'primary' ? '#007aff' : '#32d74b',
+                        life: PARTICLE_LIFETIME,
+                        maxLife: PARTICLE_LIFETIME
+                    });
+                }
+                
+                if (completedPrimary && completedMirror) {
+                    setTimeout(() => {
+                        levelComplete();
+                    }, 500);
+                }
+            }
+        }
+
+        // Switch Dimension with animation and safeguards
+        function switchDimension() {
+            // Multiple checks to prevent accidental level switching
+            if (isTransitioning) {
+                console.log("Cannot switch - currently transitioning");
+                return;
+            }
+            
+            if (dimensionSwitches >= switchLimit) {
+                console.log("Cannot switch - out of switches");
+                dimensionBtn.classList.add('vibrate');
+                setTimeout(() => dimensionBtn.classList.remove('vibrate'), 300);
+                return;
+            }
+            
+            if (completedPrimary && completedMirror) {
+                console.log("Cannot switch - level already complete");
+                return;
+            }
+            
+            isTransitioning = true;
+            dimensionEffect.style.opacity = '1';
+            
+            // Create dimension switch particles
+            const activePlayer = currentDimension === 'primary' ? player : mirrorPlayer;
+            for (let i = 0; i < 20; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 1 + Math.random() * 3;
+                
+                particles.push({
+                    x: (activePlayer.x + 0.5) * TILE_SIZE,
+                    y: (activePlayer.y + 0.5) * TILE_SIZE,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 2 + Math.random() * 4,
+                    color: currentDimension === 'primary' ? '#007aff' : '#32d74b',
+                    life: PARTICLE_LIFETIME,
+                    maxLife: PARTICLE_LIFETIME
+                });
+            }
+            
+            setTimeout(() => {
+                currentDimension = currentDimension === 'primary' ? 'mirror' : 'primary';
+                dimensionSwitches++;
+                updateDimensionDisplay();
+                updateSwitchesDisplay();
+                updateDimensionIndicators();
+                
+                dimensionEffect.style.opacity = '0';
+                setTimeout(() => {
+                    isTransitioning = false;
+                }, 300);
+            }, DIMENSION_TRANSITION_DURATION / 2);
+        }
+
+        // Level Complete
+        function levelComplete() {
+            clearInterval(gameInterval);
+            
+            // Calculate score based on time and switches used
+            const timeScore = Math.max(0, 5000 - gameTime * 10);
+            const switchScore = Math.max(0, (switchLimit - dimensionSwitches) * 100);
+            const totalScore = timeScore + switchScore;
+            
+            document.getElementById('complete-switches').textContent = `${dimensionSwitches}/${switchLimit}`;
+            document.getElementById('complete-time').textContent = formatTime(gameTime);
+            document.getElementById('complete-score').textContent = totalScore;
+            document.getElementById('complete-modal').classList.add('active');
+            
+            // Mark level as completed
+            completedLevels.add(currentLevel);
+            
+            // Unlock next level if needed
+            if (currentLevel === highestUnlockedLevel && highestUnlockedLevel < levels.length - 1) {
+                highestUnlockedLevel++;
+            }
+            
+            // Save progress
+            saveProgress();
+            updateLevelSelect();
+            
+            // Create celebration particles
+            const activePlayer = currentDimension === 'primary' ? player : mirrorPlayer;
+            for (let i = 0; i < 50; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 1 + Math.random() * 5;
+                
+                particles.push({
+                    x: (activePlayer.x + 0.5) * TILE_SIZE,
+                    y: (activePlayer.y + 0.5) * TILE_SIZE,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 2 + Math.random() * 6,
+                    color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+                    life: PARTICLE_LIFETIME * 1.5,
+                    maxLife: PARTICLE_LIFETIME * 1.5
+                });
+            }
+        }
+
+        // Update Game Time
+        function updateGameTime() {
+            gameTime = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('time-display').textContent = formatTime(gameTime);
+        }
+
+        // Format Time
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+
+        // Update Dimension Display
+        function updateDimensionDisplay() {
+            const display = document.getElementById('dimension-display');
+            display.textContent = currentDimension === 'primary' ? 'Primary' : 'Mirror';
+            display.style.color = currentDimension === 'primary' ? 'var(--primary-color)' : 'var(--mirror-color)';
+        }
+
+        // Update Switches Display
+        function updateSwitchesDisplay() {
+            const display = document.getElementById('switches-display');
+            display.textContent = `${switchLimit - dimensionSwitches}/${switchLimit}`;
+            
+            // Change color when getting low
+            if (switchLimit - dimensionSwitches <= 3) {
+                display.style.color = 'var(--warning-color)';
+            } else {
+                display.style.color = '';
+            }
+        }
+
+        // Show Hint
+        function showHint() {
+            const hints = [
+                "Try switching dimensions when stuck. Some objects only exist in one world!",
+                "Buttons can control gates in both dimensions. Find ways to activate them.",
+                "Crates can block paths or activate buttons. Use them strategically.",
+                "Sometimes you need to position objects differently in each dimension.",
+                "Plan your moves carefully - you have limited dimension switches!",
+                "One-way walls only allow movement in one direction.",
+                "Teleporters can help you bypass obstacles quickly.",
+                "Some buttons control gates in the opposite dimension.",
+                "In boss levels, mechanics work differently - pay attention!",
+                "The solution often requires using both dimensions together."
+            ];
+            
+            // Show hint relevant to current level mechanics
+            let hintIndex = currentLevel % hints.length;
+            
+            // For boss levels, show a special hint
+            if (currentLevel > 0 && (currentLevel + 1) % 5 === 0) {
+                hintIndex = 8; // Boss level hint
+            }
+            
+            alert(hints[hintIndex]);
+        }
+
+        // Update level select UI
+        function updateLevelSelect() {
+            const levelsGrid = document.getElementById('levels-grid');
+            levelsGrid.innerHTML = '';
+            
+            for (let i = 0; i <= Math.min(highestUnlockedLevel + 5, levels.length - 1); i++) {
+                const levelBtn = document.createElement('button');
+                levelBtn.className = 'level-btn';
+                levelBtn.textContent = i + 1;
+                
+                if (completedLevels.has(i)) {
+                    levelBtn.classList.add('completed');
+                } else if (i > highestUnlockedLevel) {
+                    levelBtn.classList.add('locked');
+                    levelBtn.disabled = true;
+                }
+                
+                if (i === currentLevel) {
+                    levelBtn.classList.add('current');
+                }
+                
+                // Add badge for boss levels (every 5 levels)
+                if (i > 0 && (i + 1) % 5 === 0) {
+                    const badge = document.createElement('span');
+                    badge.className = 'level-badge';
+                    badge.textContent = 'Boss';
+                    levelBtn.appendChild(badge);
+                }
+                
+                levelBtn.addEventListener('click', () => {
+                    if (!levelBtn.classList.contains('locked')) {
+                        transitionToLevel(i);
+                    }
+                });
+                
+                levelsGrid.appendChild(levelBtn);
+            }
+        }
+
+        // Show Level Select
+        function showLevelSelect() {
+            updateLevelSelect();
+            document.getElementById('levels-modal').classList.add('active');
+        }
+
+        // Hide Level Select
+        function hideLevelSelect() {
+            document.getElementById('levels-modal').classList.remove('active');
+        }
+
+        // Replay Level
+        function replayLevel() {
+            document.getElementById('complete-modal').classList.remove('active');
+            loadLevel(currentLevel);
+            startTime = Date.now();
+            gameTime = 0;
+            gameInterval = setInterval(updateGameTime, 1000);
+        }
+
+        // Next Level with transition
+        function nextLevel() {
+            document.getElementById('complete-modal').classList.remove('active');
+            
+            if (currentLevel < levels.length - 1) {
+                transitionToLevel(currentLevel + 1);
+            } else {
+                // If we've completed all levels, go back to level 0
+                transitionToLevel(0);
+            }
+        }
+
+        // Start the game
+        initGame();
+    </script>
+</body>
+</html>
