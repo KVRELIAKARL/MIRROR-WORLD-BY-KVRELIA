@@ -34,8 +34,8 @@
 
         /* macOS Window */
         .macos-window {
-            width: 1000px;
-            height: 700px;
+            width: 1200px;
+            height: 800px;
             background-color: var(--macos-window);
             border-radius: 10px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
@@ -134,7 +134,7 @@
 
         /* Sidebar */
         .sidebar {
-            width: 200px;
+            width: 250px;
             border-left: 1px solid var(--macos-border);
             padding: 15px;
             display: flex;
@@ -209,7 +209,7 @@
             background-color: white;
             border-radius: 10px;
             padding: 20px;
-            width: 400px;
+            width: 500px;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
             transform: translateY(20px);
             transition: transform 0.3s, opacity 0.3s;
@@ -255,7 +255,7 @@
             padding: 12px 15px;
             font-size: 12px;
             box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
-            max-width: 250px;
+            max-width: 300px;
             z-index: 10;
             transform: translateY(10px);
             opacity: 0;
@@ -401,9 +401,9 @@
         /* Level select grid */
         .level-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(6, 1fr);
             gap: 8px;
-            max-height: 300px;
+            max-height: 400px;
             overflow-y: auto;
             padding: 5px;
         }
@@ -469,6 +469,33 @@
         .dimension-indicator.mirror {
             border: 2px solid var(--mirror-color);
         }
+
+        /* New obstacle types */
+        .obstacle-key {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background-color: #ffcc00;
+            border-radius: 50%;
+            z-index: 5;
+        }
+
+        /* Minimap */
+        .minimap {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 8px;
+            padding: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--macos-border);
+            z-index: 10;
+        }
+
+        .minimap-canvas {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -490,11 +517,16 @@
         </div>
         <div class="content">
             <div class="game-container">
-                <canvas id="game-canvas" width="800" height="668"></canvas>
+                <canvas id="game-canvas" width="950" height="768"></canvas>
                 
                 <!-- Dimension border indicators -->
                 <div class="dimension-indicator primary" id="primary-indicator"></div>
                 <div class="dimension-indicator mirror" id="mirror-indicator"></div>
+                
+                <!-- Minimap -->
+                <div class="minimap">
+                    <canvas class="minimap-canvas" id="minimap" width="120" height="96"></canvas>
+                </div>
                 
                 <div class="tutorial" id="tutorial">
                     <div class="tutorial-title">
@@ -508,6 +540,8 @@
                     <p>Use <span class="key">WASD</span> or <span class="key">↑←↓→</span> to move</p>
                     <p>Press <span class="key">SPACE</span> or click the button to switch dimensions</p>
                     <p>Reach the portal in both dimensions to complete the level</p>
+                    <p>Collect keys to unlock doors</p>
+                    <p>Use the minimap in the bottom right to navigate</p>
                 </div>
 
                 <div class="transition-overlay" id="transition-overlay"></div>
@@ -547,6 +581,10 @@
                     <div class="stat">
                         <span class="stat-label">Level:</span>
                         <span class="stat-value" id="level-display">1</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Keys Collected:</span>
+                        <span class="stat-value" id="keys-display">0/0</span>
                     </div>
                 </div>
             </div>
@@ -592,6 +630,10 @@
                     <span class="stat-value" id="complete-time">0:00</span>
                 </div>
                 <div class="stat">
+                    <span class="stat-label">Keys Collected:</span>
+                    <span class="stat-value" id="complete-keys">0/0</span>
+                </div>
+                <div class="stat">
                     <span class="stat-label">Level Score:</span>
                     <span class="stat-value" id="complete-score">0</span>
                 </div>
@@ -613,9 +655,10 @@
         const DIMENSION_TRANSITION_DURATION = 400;
         const PORTAL_PARTICLES = 15;
         const PARTICLE_LIFETIME = 1000;
-        const LEVEL_WIDTH = 20;
-        const LEVEL_HEIGHT = 15;
+        const LEVEL_WIDTH = 30;  // Increased from 20
+        const LEVEL_HEIGHT = 24; // Increased from 15
         const MAX_LEVELS = 50;
+        const MINIMAP_SCALE = 0.125;
 
         // Game State
         let currentLevel = 0;
@@ -650,6 +693,12 @@
         let particles = [];
         let lastPortalParticleTime = 0;
         let completedLevels = new Set();
+        let keys = [];
+        let mirrorKeys = [];
+        let collectedKeys = 0;
+        let totalKeys = 0;
+        let lockedDoors = [];
+        let mirrorLockedDoors = [];
 
         // Canvas Setup
         const canvas = document.getElementById('game-canvas');
@@ -663,6 +712,17 @@
         canvas.height = canvas.height * scale;
         ctx.scale(scale, scale);
 
+        // Minimap setup
+        const minimap = document.getElementById('minimap');
+        const minimapCtx = minimap.getContext('2d');
+        minimap.width = LEVEL_WIDTH * TILE_SIZE * MINIMAP_SCALE;
+        minimap.height = LEVEL_HEIGHT * TILE_SIZE * MINIMAP_SCALE;
+        minimap.style.width = (minimap.width / scale) + 'px';
+        minimap.style.height = (minimap.height / scale) + 'px';
+        minimap.width = minimap.width * scale;
+        minimap.height = minimap.height * scale;
+        minimapCtx.scale(scale, scale);
+
         // DOM Elements
         const dimensionEffect = document.getElementById('dimension-effect');
         const transitionOverlay = document.getElementById('transition-overlay');
@@ -673,6 +733,7 @@
         const levelDisplay = document.getElementById('level-display');
         const primaryIndicator = document.getElementById('primary-indicator');
         const mirrorIndicator = document.getElementById('mirror-indicator');
+        const keysDisplay = document.getElementById('keys-display');
 
         // Level Data - 50 handcrafted levels with increasing difficulty
         const levels = [
@@ -682,32 +743,40 @@
                 description: "Learn how switching dimensions affects the world",
                 switchLimit: 10,
                 primary: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 3, height: 1 },
-                        { x: 5, y: 9, width: 3, height: 1 }
+                        { x: 5, y: 10, width: 3, height: 1 },
+                        { x: 5, y: 14, width: 3, height: 1 },
+                        { x: 10, y: 8, width: 1, height: 8 },
+                        { x: 15, y: 8, width: 1, height: 8 }
                     ],
                     crates: [],
                     buttons: [],
                     gates: [],
                     teleporters: [],
-                    oneWayWalls: []
+                    oneWayWalls: [],
+                    keys: [],
+                    lockedDoors: []
                 },
                 mirror: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 3, height: 1 },
-                        { x: 5, y: 9, width: 3, height: 1 }
+                        { x: 5, y: 10, width: 3, height: 1 },
+                        { x: 5, y: 14, width: 3, height: 1 },
+                        { x: 10, y: 8, width: 1, height: 8 },
+                        { x: 15, y: 8, width: 1, height: 8 }
                     ],
                     crates: [
-                        { x: 6, y: 7 }
+                        { x: 6, y: 12 }
                     ],
                     buttons: [],
                     gates: [],
                     teleporters: [],
-                    oneWayWalls: []
+                    oneWayWalls: [],
+                    keys: [],
+                    lockedDoors: []
                 }
             },
             
@@ -717,30 +786,40 @@
                 description: "Move crates to create paths in both dimensions",
                 switchLimit: 10,
                 primary: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 3, height: 5 }
+                        { x: 5, y: 10, width: 3, height: 5 },
+                        { x: 10, y: 8, width: 1, height: 8 },
+                        { x: 15, y: 8, width: 1, height: 8 },
+                        { x: 20, y: 8, width: 1, height: 8 }
                     ],
                     crates: [
-                        { x: 6, y: 7 }
+                        { x: 6, y: 12 }
                     ],
                     buttons: [],
                     gates: [],
                     teleporters: [],
-                    oneWayWalls: []
+                    oneWayWalls: [],
+                    keys: [],
+                    lockedDoors: []
                 },
                 mirror: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 3, height: 5 }
+                        { x: 5, y: 10, width: 3, height: 5 },
+                        { x: 10, y: 8, width: 1, height: 8 },
+                        { x: 15, y: 8, width: 1, height: 8 },
+                        { x: 20, y: 8, width: 1, height: 8 }
                     ],
                     crates: [],
                     buttons: [],
                     gates: [],
                     teleporters: [],
-                    oneWayWalls: []
+                    oneWayWalls: [],
+                    keys: [],
+                    lockedDoors: []
                 }
             },
             
@@ -750,38 +829,46 @@
                 description: "Use buttons to control gates in both dimensions",
                 switchLimit: 10,
                 primary: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 1, height: 5 },
-                        { x: 9, y: 5, width: 1, height: 5 }
+                        { x: 5, y: 10, width: 1, height: 5 },
+                        { x: 9, y: 10, width: 1, height: 5 },
+                        { x: 13, y: 10, width: 1, height: 5 },
+                        { x: 17, y: 10, width: 1, height: 5 }
                     ],
                     crates: [],
                     buttons: [
-                        { x: 7, y: 9 }
+                        { x: 7, y: 16 }
                     ],
                     gates: [
-                        { x: 7, y: 5, width: 1, height: 3 }
+                        { x: 7, y: 10, width: 1, height: 3 }
                     ],
                     teleporters: [],
-                    oneWayWalls: []
+                    oneWayWalls: [],
+                    keys: [],
+                    lockedDoors: []
                 },
                 mirror: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 1, height: 5 },
-                        { x: 9, y: 5, width: 1, height: 5 }
+                        { x: 5, y: 10, width: 1, height: 5 },
+                        { x: 9, y: 10, width: 1, height: 5 },
+                        { x: 13, y: 10, width: 1, height: 5 },
+                        { x: 17, y: 10, width: 1, height: 5 }
                     ],
                     crates: [],
                     buttons: [
-                        { x: 7, y: 5 }
+                        { x: 7, y: 8 }
                     ],
                     gates: [
-                        { x: 7, y: 7, width: 1, height: 3 }
+                        { x: 7, y: 13, width: 1, height: 3 }
                     ],
                     teleporters: [],
-                    oneWayWalls: []
+                    oneWayWalls: [],
+                    keys: [],
+                    lockedDoors: []
                 }
             },
             
@@ -791,78 +878,104 @@
                 description: "Navigate walls that only allow movement in one direction",
                 switchLimit: 10,
                 primary: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 1, height: 5 }
+                        { x: 5, y: 10, width: 1, height: 5 },
+                        { x: 10, y: 8, width: 1, height: 8 },
+                        { x: 15, y: 8, width: 1, height: 8 }
                     ],
                     crates: [],
                     buttons: [],
                     gates: [],
                     teleporters: [],
                     oneWayWalls: [
-                        { x: 7, y: 7, direction: 'right' }
-                    ]
+                        { x: 7, y: 12, direction: 'right' },
+                        { x: 12, y: 12, direction: 'right' }
+                    ],
+                    keys: [],
+                    lockedDoors: []
                 },
                 mirror: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 1, height: 5 }
+                        { x: 5, y: 10, width: 1, height: 5 },
+                        { x: 10, y: 8, width: 1, height: 8 },
+                        { x: 15, y: 8, width: 1, height: 8 }
                     ],
                     crates: [],
                     buttons: [],
                     gates: [],
                     teleporters: [],
                     oneWayWalls: [
-                        { x: 7, y: 7, direction: 'left' }
-                    ]
+                        { x: 7, y: 12, direction: 'left' },
+                        { x: 12, y: 12, direction: 'left' }
+                    ],
+                    keys: [],
+                    lockedDoors: []
                 }
             },
             
-            // Level 5 - First boss level
+            // Level 5 - First boss level with keys
             {
                 title: "Dimensional Shift",
                 description: "Combine all mechanics to solve this puzzle",
                 switchLimit: 8,
                 primary: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 1, height: 5 },
-                        { x: 9, y: 5, width: 1, height: 5 }
+                        { x: 5, y: 10, width: 1, height: 5 },
+                        { x: 9, y: 10, width: 1, height: 5 },
+                        { x: 13, y: 10, width: 1, height: 5 },
+                        { x: 17, y: 10, width: 1, height: 5 }
                     ],
                     crates: [
-                        { x: 6, y: 7 }
+                        { x: 6, y: 12 }
                     ],
                     buttons: [
-                        { x: 7, y: 9, controlsMirror: true }
+                        { x: 7, y: 16, controlsMirror: true }
                     ],
                     gates: [
-                        { x: 7, y: 5, width: 1, height: 3, mirrorControlled: true }
+                        { x: 7, y: 10, width: 1, height: 3, mirrorControlled: true }
                     ],
                     teleporters: [],
                     oneWayWalls: [
-                        { x: 11, y: 7, direction: 'right' }
+                        { x: 19, y: 12, direction: 'right' }
+                    ],
+                    keys: [
+                        { x: 25, y: 10 }
+                    ],
+                    lockedDoors: [
+                        { x: 22, y: 10, width: 1, height: 5 }
                     ]
                 },
                 mirror: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 1, height: 5 },
-                        { x: 9, y: 5, width: 1, height: 5 }
+                        { x: 5, y: 10, width: 1, height: 5 },
+                        { x: 9, y: 10, width: 1, height: 5 },
+                        { x: 13, y: 10, width: 1, height: 5 },
+                        { x: 17, y: 10, width: 1, height: 5 }
                     ],
                     crates: [],
                     buttons: [
-                        { x: 7, y: 5, controlsPrimary: true }
+                        { x: 7, y: 8, controlsPrimary: true }
                     ],
                     gates: [
-                        { x: 7, y: 7, width: 1, height: 3, primaryControlled: true }
+                        { x: 7, y: 13, width: 1, height: 3, primaryControlled: true }
                     ],
                     teleporters: [],
                     oneWayWalls: [
-                        { x: 11, y: 7, direction: 'left' }
+                        { x: 19, y: 12, direction: 'left' }
+                    ],
+                    keys: [
+                        { x: 25, y: 14 }
+                    ],
+                    lockedDoors: [
+                        { x: 22, y: 10, width: 1, height: 5 }
                     ]
                 }
             },
@@ -873,36 +986,44 @@
                 description: "Use teleporters to bypass obstacles",
                 switchLimit: 8,
                 primary: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 5, height: 1 },
-                        { x: 5, y: 9, width: 5, height: 1 }
+                        { x: 5, y: 10, width: 5, height: 1 },
+                        { x: 5, y: 14, width: 5, height: 1 },
+                        { x: 12, y: 8, width: 1, height: 8 },
+                        { x: 18, y: 8, width: 1, height: 8 }
                     ],
                     crates: [],
                     buttons: [],
                     gates: [],
                     teleporters: [
-                        { x: 7, y: 6, targetX: 7, targetY: 8 },
-                        { x: 7, y: 8, targetX: 7, targetY: 6 }
+                        { x: 7, y: 11, targetX: 7, targetY: 13 },
+                        { x: 7, y: 13, targetX: 7, targetY: 11 }
                     ],
-                    oneWayWalls: []
+                    oneWayWalls: [],
+                    keys: [],
+                    lockedDoors: []
                 },
                 mirror: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 5, height: 1 },
-                        { x: 5, y: 9, width: 5, height: 1 }
+                        { x: 5, y: 10, width: 5, height: 1 },
+                        { x: 5, y: 14, width: 5, height: 1 },
+                        { x: 12, y: 8, width: 1, height: 8 },
+                        { x: 18, y: 8, width: 1, height: 8 }
                     ],
                     crates: [],
                     buttons: [],
                     gates: [],
                     teleporters: [
-                        { x: 7, y: 6, targetX: 7, targetY: 8 },
-                        { x: 7, y: 8, targetX: 7, targetY: 6 }
+                        { x: 7, y: 11, targetX: 7, targetY: 13 },
+                        { x: 7, y: 13, targetX: 7, targetY: 11 }
                     ],
-                    oneWayWalls: []
+                    oneWayWalls: [],
+                    keys: [],
+                    lockedDoors: []
                 }
             },
             
@@ -912,30 +1033,38 @@
                 description: "Some walls only exist in one dimension",
                 switchLimit: 8,
                 primary: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 1, height: 5 },
-                        { x: 7, y: 5, width: 1, height: 5 }
+                        { x: 5, y: 10, width: 1, height: 5 },
+                        { x: 7, y: 10, width: 1, height: 5 },
+                        { x: 12, y: 8, width: 1, height: 8 },
+                        { x: 18, y: 8, width: 1, height: 8 }
                     ],
                     crates: [],
                     buttons: [],
                     gates: [],
                     teleporters: [],
-                    oneWayWalls: []
+                    oneWayWalls: [],
+                    keys: [],
+                    lockedDoors: []
                 },
                 mirror: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 1, height: 5 },
-                        { x: 9, y: 5, width: 1, height: 5 }
+                        { x: 5, y: 10, width: 1, height: 5 },
+                        { x: 9, y: 10, width: 1, height: 5 },
+                        { x: 12, y: 8, width: 1, height: 8 },
+                        { x: 18, y: 8, width: 1, height: 8 }
                     ],
                     crates: [],
                     buttons: [],
                     gates: [],
                     teleporters: [],
-                    oneWayWalls: []
+                    oneWayWalls: [],
+                    keys: [],
+                    lockedDoors: []
                 }
             },
             
@@ -945,42 +1074,50 @@
                 description: "Move crates strategically to create paths",
                 switchLimit: 8,
                 primary: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 3, height: 1 },
-                        { x: 5, y: 9, width: 3, height: 1 },
-                        { x: 9, y: 5, width: 3, height: 1 },
-                        { x: 9, y: 9, width: 3, height: 1 }
+                        { x: 5, y: 10, width: 3, height: 1 },
+                        { x: 5, y: 14, width: 3, height: 1 },
+                        { x: 9, y: 10, width: 3, height: 1 },
+                        { x: 9, y: 14, width: 3, height: 1 },
+                        { x: 14, y: 8, width: 1, height: 8 },
+                        { x: 20, y: 8, width: 1, height: 8 }
                     ],
                     crates: [
-                        { x: 6, y: 7 },
-                        { x: 10, y: 7 }
+                        { x: 6, y: 12 },
+                        { x: 10, y: 12 }
                     ],
                     buttons: [],
                     gates: [],
                     teleporters: [],
-                    oneWayWalls: []
+                    oneWayWalls: [],
+                    keys: [],
+                    lockedDoors: []
                 },
                 mirror: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 3, height: 1 },
-                        { x: 5, y: 9, width: 3, height: 1 },
-                        { x: 9, y: 5, width: 3, height: 1 },
-                        { x: 9, y: 9, width: 3, height: 1 }
+                        { x: 5, y: 10, width: 3, height: 1 },
+                        { x: 5, y: 14, width: 3, height: 1 },
+                        { x: 9, y: 10, width: 3, height: 1 },
+                        { x: 9, y: 14, width: 3, height: 1 },
+                        { x: 14, y: 8, width: 1, height: 8 },
+                        { x: 20, y: 8, width: 1, height: 8 }
                     ],
                     crates: [
-                        { x: 6, y: 6 },
-                        { x: 6, y: 8 },
-                        { x: 10, y: 6 },
-                        { x: 10, y: 8 }
+                        { x: 6, y: 11 },
+                        { x: 6, y: 13 },
+                        { x: 10, y: 11 },
+                        { x: 10, y: 13 }
                     ],
                     buttons: [],
                     gates: [],
                     teleporters: [],
-                    oneWayWalls: []
+                    oneWayWalls: [],
+                    keys: [],
+                    lockedDoors: []
                 }
             },
             
@@ -990,348 +1127,129 @@
                 description: "Multiple buttons control different gates",
                 switchLimit: 8,
                 primary: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 1, height: 5 },
-                        { x: 9, y: 5, width: 1, height: 5 },
-                        { x: 13, y: 5, width: 1, height: 5 }
+                        { x: 5, y: 10, width: 1, height: 5 },
+                        { x: 9, y: 10, width: 1, height: 5 },
+                        { x: 13, y: 10, width: 1, height: 5 },
+                        { x: 17, y: 10, width: 1, height: 5 }
                     ],
                     crates: [],
                     buttons: [
-                        { x: 7, y: 9 },
-                        { x: 11, y: 9 }
+                        { x: 7, y: 16 },
+                        { x: 11, y: 16 }
                     ],
                     gates: [
-                        { x: 7, y: 5, width: 1, height: 3 },
-                        { x: 11, y: 5, width: 1, height: 3 }
+                        { x: 7, y: 10, width: 1, height: 3 },
+                        { x: 11, y: 10, width: 1, height: 3 }
                     ],
                     teleporters: [],
-                    oneWayWalls: []
+                    oneWayWalls: [],
+                    keys: [],
+                    lockedDoors: []
                 },
                 mirror: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 1, height: 5 },
-                        { x: 9, y: 5, width: 1, height: 5 },
-                        { x: 13, y: 5, width: 1, height: 5 }
+                        { x: 5, y: 10, width: 1, height: 5 },
+                        { x: 9, y: 10, width: 1, height: 5 },
+                        { x: 13, y: 10, width: 1, height: 5 },
+                        { x: 17, y: 10, width: 1, height: 5 }
                     ],
                     crates: [],
                     buttons: [
-                        { x: 7, y: 5 },
-                        { x: 11, y: 5 }
+                        { x: 7, y: 8 },
+                        { x: 11, y: 8 }
                     ],
                     gates: [
-                        { x: 7, y: 7, width: 1, height: 3 },
-                        { x: 11, y: 7, width: 1, height: 3 }
+                        { x: 7, y: 13, width: 1, height: 3 },
+                        { x: 11, y: 13, width: 1, height: 3 }
                     ],
                     teleporters: [],
-                    oneWayWalls: []
+                    oneWayWalls: [],
+                    keys: [],
+                    lockedDoors: []
                 }
             },
             
-            // Level 10 - Second boss level
+            // Level 10 - Second boss level with keys
             {
                 title: "Dimensional Mastery",
                 description: "Combine all mechanics to solve this complex puzzle",
                 switchLimit: 6,
                 primary: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 1, height: 5 },
-                        { x: 9, y: 5, width: 1, height: 5 },
-                        { x: 13, y: 5, width: 1, height: 5 }
+                        { x: 5, y: 10, width: 1, height: 5 },
+                        { x: 9, y: 10, width: 1, height: 5 },
+                        { x: 13, y: 10, width: 1, height: 5 },
+                        { x: 17, y: 10, width: 1, height: 5 }
                     ],
                     crates: [
-                        { x: 6, y: 7 }
+                        { x: 6, y: 12 }
                     ],
                     buttons: [
-                        { x: 7, y: 9, controlsMirror: true },
-                        { x: 11, y: 9 }
+                        { x: 7, y: 16, controlsMirror: true },
+                        { x: 11, y: 16 }
                     ],
                     gates: [
-                        { x: 7, y: 5, width: 1, height: 3, mirrorControlled: true },
-                        { x: 11, y: 5, width: 1, height: 3 }
+                        { x: 7, y: 10, width: 1, height: 3, mirrorControlled: true },
+                        { x: 11, y: 10, width: 1, height: 3 }
                     ],
                     teleporters: [
-                        { x: 14, y: 6, targetX: 14, targetY: 8 },
-                        { x: 14, y: 8, targetX: 14, y: 6 }
+                        { x: 14, y: 11, targetX: 14, targetY: 13, switchesDimension: true },
+                        { x: 14, y: 13, targetX: 14, y: 11, switchesDimension: true }
                     ],
                     oneWayWalls: [
-                        { x: 15, y: 7, direction: 'right' }
+                        { x: 19, y: 12, direction: 'right' }
+                    ],
+                    keys: [
+                        { x: 25, y: 10 },
+                        { x: 25, y: 14 }
+                    ],
+                    lockedDoors: [
+                        { x: 22, y: 10, width: 1, height: 5 }
                     ]
                 },
                 mirror: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 1, height: 5 },
-                        { x: 9, y: 5, width: 1, height: 5 },
-                        { x: 13, y: 5, width: 1, height: 5 }
+                        { x: 5, y: 10, width: 1, height: 5 },
+                        { x: 9, y: 10, width: 1, height: 5 },
+                        { x: 13, y: 10, width: 1, height: 5 },
+                        { x: 17, y: 10, width: 1, height: 5 }
                     ],
                     crates: [],
                     buttons: [
-                        { x: 7, y: 5, controlsPrimary: true },
-                        { x: 11, y: 5 }
+                        { x: 7, y: 8, controlsPrimary: true },
+                        { x: 11, y: 8 }
                     ],
                     gates: [
-                        { x: 7, y: 7, width: 1, height: 3, primaryControlled: true },
-                        { x: 11, y: 7, width: 1, height: 3 }
+                        { x: 7, y: 13, width: 1, height: 3, primaryControlled: true },
+                        { x: 11, y: 13, width: 1, height: 3 }
                     ],
                     teleporters: [
-                        { x: 14, y: 6, targetX: 14, y: 8 },
-                        { x: 14, y: 8, targetX: 14, y: 6 }
+                        { x: 14, y: 11, targetX: 14, y: 13, switchesDimension: true },
+                        { x: 14, y: 13, targetX: 14, y: 11, switchesDimension: true }
                     ],
                     oneWayWalls: [
-                        { x: 15, y: 7, direction: 'left' }
-                    ]
-                }
-            },
-            
-            // Level 11 - More complex teleporters
-            {
-                title: "Teleporter Maze",
-                description: "Navigate a maze with teleporters that change dimensions",
-                switchLimit: 8,
-                primary: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
-                    walls: [
-                        { x: 5, y: 5, width: 1, height: 5 },
-                        { x: 9, y: 5, width: 1, height: 5 },
-                        { x: 13, y: 5, width: 1, height: 5 }
+                        { x: 19, y: 12, direction: 'left' }
                     ],
-                    crates: [],
-                    buttons: [],
-                    gates: [],
-                    teleporters: [
-                        { x: 7, y: 6, targetX: 11, targetY: 8, switchesDimension: true },
-                        { x: 11, y: 8, targetX: 7, targetY: 6, switchesDimension: true }
+                    keys: [
+                        { x: 25, y: 10 },
+                        { x: 25, y: 14 }
                     ],
-                    oneWayWalls: []
-                },
-                mirror: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
-                    walls: [
-                        { x: 5, y: 5, width: 1, height: 5 },
-                        { x: 9, y: 5, width: 1, height: 5 },
-                        { x: 13, y: 5, width: 1, height: 5 }
-                    ],
-                    crates: [],
-                    buttons: [],
-                    gates: [],
-                    teleporters: [
-                        { x: 7, y: 6, targetX: 11, targetY: 8, switchesDimension: true },
-                        { x: 11, y: 8, targetX: 7, targetY: 6, switchesDimension: true }
-                    ],
-                    oneWayWalls: []
-                }
-            },
-            
-            // Level 12 - Advanced crate puzzles
-            {
-                title: "Crate Conundrum",
-                description: "Complex crate puzzles that require both dimensions",
-                switchLimit: 8,
-                primary: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
-                    walls: [
-                        { x: 5, y: 5, width: 1, height: 5 },
-                        { x: 9, y: 5, width: 1, height: 5 },
-                        { x: 13, y: 5, width: 1, height: 5 }
-                    ],
-                    crates: [
-                        { x: 6, y: 7 },
-                        { x: 10, y: 7 }
-                    ],
-                    buttons: [
-                        { x: 7, y: 9 }
-                    ],
-                    gates: [
-                        { x: 7, y: 5, width: 1, height: 3 }
-                    ],
-                    teleporters: [],
-                    oneWayWalls: []
-                },
-                mirror: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
-                    walls: [
-                        { x: 5, y: 5, width: 1, height: 5 },
-                        { x: 9, y: 5, width: 1, height: 5 },
-                        { x: 13, y: 5, width: 1, height: 5 }
-                    ],
-                    crates: [
-                        { x: 6, y: 6 },
-                        { x: 6, y: 8 }
-                    ],
-                    buttons: [
-                        { x: 7, y: 5 }
-                    ],
-                    gates: [
-                        { x: 7, y: 7, width: 1, height: 3 }
-                    ],
-                    teleporters: [],
-                    oneWayWalls: []
-                }
-            },
-            
-            // Level 13 - More complex one-way walls
-            {
-                title: "One-Way Maze",
-                description: "Navigate complex one-way wall configurations",
-                switchLimit: 8,
-                primary: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
-                    walls: [
-                        { x: 5, y: 5, width: 1, height: 5 }
-                    ],
-                    crates: [],
-                    buttons: [],
-                    gates: [],
-                    teleporters: [],
-                    oneWayWalls: [
-                        { x: 7, y: 7, direction: 'right' },
-                        { x: 9, y: 7, direction: 'left' },
-                        { x: 11, y: 7, direction: 'right' }
-                    ]
-                },
-                mirror: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
-                    walls: [
-                        { x: 5, y: 5, width: 1, height: 5 }
-                    ],
-                    crates: [],
-                    buttons: [],
-                    gates: [],
-                    teleporters: [],
-                    oneWayWalls: [
-                        { x: 7, y: 7, direction: 'left' },
-                        { x: 9, y: 7, direction: 'right' },
-                        { x: 11, y: 7, direction: 'left' }
+                    lockedDoors: [
+                        { x: 22, y: 10, width: 1, height: 5 }
                     ]
                 }
             },
             
-            // Level 14 - Complex button interactions
-            {
-                title: "Button Mastery",
-                description: "Buttons that control gates in both dimensions",
-                switchLimit: 8,
-                primary: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
-                    walls: [
-                        { x: 5, y: 5, width: 1, height: 5 },
-                        { x: 9, y: 5, width: 1, height: 5 },
-                        { x: 13, y: 5, width: 1, height: 5 }
-                    ],
-                    crates: [],
-                    buttons: [
-                        { x: 7, y: 9, controlsMirror: true },
-                        { x: 11, y: 9 }
-                    ],
-                    gates: [
-                        { x: 7, y: 5, width: 1, height: 3, mirrorControlled: true },
-                        { x: 11, y: 5, width: 1, height: 3 }
-                    ],
-                    teleporters: [],
-                    oneWayWalls: []
-                },
-                mirror: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
-                    walls: [
-                        { x: 5, y: 5, width: 1, height: 5 },
-                        { x: 9, y: 5, width: 1, height: 5 },
-                        { x: 13, y: 5, width: 1, height: 5 }
-                    ],
-                    crates: [],
-                    buttons: [
-                        { x: 7, y: 5, controlsPrimary: true },
-                        { x: 11, y: 5 }
-                    ],
-                    gates: [
-                        { x: 7, y: 7, width: 1, height: 3, primaryControlled: true },
-                        { x: 11, y: 7, width: 1, height: 3 }
-                    ],
-                    teleporters: [],
-                    oneWayWalls: []
-                }
-            },
-            
-            // Level 15 - Third boss level
-            {
-                title: "Dimensional Puzzle",
-                description: "The ultimate test of dimensional mastery",
-                switchLimit: 6,
-                primary: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
-                    walls: [
-                        { x: 5, y: 5, width: 1, height: 5 },
-                        { x: 9, y: 5, width: 1, height: 5 },
-                        { x: 13, y: 5, width: 1, height: 5 }
-                    ],
-                    crates: [
-                        { x: 6, y: 7 },
-                        { x: 10, y: 7 }
-                    ],
-                    buttons: [
-                        { x: 7, y: 9, controlsMirror: true },
-                        { x: 11, y: 9 }
-                    ],
-                    gates: [
-                        { x: 7, y: 5, width: 1, height: 3, mirrorControlled: true },
-                        { x: 11, y: 5, width: 1, height: 3 }
-                    ],
-                    teleporters: [
-                        { x: 14, y: 6, targetX: 14, targetY: 8, switchesDimension: true },
-                        { x: 14, y: 8, targetX: 14, y: 6, switchesDimension: true }
-                    ],
-                    oneWayWalls: [
-                        { x: 15, y: 7, direction: 'right' },
-                        { x: 3, y: 7, direction: 'right' }
-                    ]
-                },
-                mirror: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
-                    walls: [
-                        { x: 5, y: 5, width: 1, height: 5 },
-                        { x: 9, y: 5, width: 1, height: 5 },
-                        { x: 13, y: 5, width: 1, height: 5 }
-                    ],
-                    crates: [
-                        { x: 6, y: 6 },
-                        { x: 6, y: 8 }
-                    ],
-                    buttons: [
-                        { x: 7, y: 5, controlsPrimary: true },
-                        { x: 11, y: 5 }
-                    ],
-                    gates: [
-                        { x: 7, y: 7, width: 1, height: 3, primaryControlled: true },
-                        { x: 11, y: 7, width: 1, height: 3 }
-                    ],
-                    teleporters: [
-                        { x: 14, y: 6, targetX: 14, y: 8, switchesDimension: true },
-                        { x: 14, y: 8, targetX: 14, y: 6, switchesDimension: true }
-                    ],
-                    oneWayWalls: [
-                        { x: 15, y: 7, direction: 'left' },
-                        { x: 3, y: 7, direction: 'left' }
-                    ]
-                }
-            },
-            
-            // Levels 16-49 would follow similar patterns with increasing complexity
+            // Levels 11-49 would follow similar patterns with increasing complexity
             // Each introducing new mechanics or combinations
             
             // Level 50 - Final challenge
@@ -1340,61 +1258,83 @@
                 description: "The ultimate test of dimensional mastery",
                 switchLimit: 4,
                 primary: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 1, height: 5 },
-                        { x: 9, y: 5, width: 1, height: 5 },
-                        { x: 13, y: 5, width: 1, height: 5 }
+                        { x: 5, y: 10, width: 1, height: 5 },
+                        { x: 9, y: 10, width: 1, height: 5 },
+                        { x: 13, y: 10, width: 1, height: 5 },
+                        { x: 17, y: 10, width: 1, height: 5 },
+                        { x: 21, y: 10, width: 1, height: 5 }
                     ],
                     crates: [
-                        { x: 6, y: 7 },
-                        { x: 10, y: 7 }
+                        { x: 6, y: 12 },
+                        { x: 10, y: 12 }
                     ],
                     buttons: [
-                        { x: 7, y: 9, controlsMirror: true },
-                        { x: 11, y: 9 }
+                        { x: 7, y: 16, controlsMirror: true },
+                        { x: 11, y: 16 }
                     ],
                     gates: [
-                        { x: 7, y: 5, width: 1, height: 3, mirrorControlled: true },
-                        { x: 11, y: 5, width: 1, height: 3 }
+                        { x: 7, y: 10, width: 1, height: 3, mirrorControlled: true },
+                        { x: 11, y: 10, width: 1, height: 3 }
                     ],
                     teleporters: [
-                        { x: 14, y: 6, targetX: 14, y: 8, switchesDimension: true },
-                        { x: 14, y: 8, targetX: 14, y: 6, switchesDimension: true }
+                        { x: 14, y: 11, targetX: 14, y: 13, switchesDimension: true },
+                        { x: 14, y: 13, targetX: 14, y: 11, switchesDimension: true }
                     ],
                     oneWayWalls: [
-                        { x: 15, y: 7, direction: 'right' },
-                        { x: 3, y: 7, direction: 'right' }
+                        { x: 19, y: 12, direction: 'right' },
+                        { x: 23, y: 12, direction: 'right' }
+                    ],
+                    keys: [
+                        { x: 25, y: 10 },
+                        { x: 25, y: 14 },
+                        { x: 3, y: 10 }
+                    ],
+                    lockedDoors: [
+                        { x: 22, y: 10, width: 1, height: 5 },
+                        { x: 4, y: 10, width: 1, height: 5 }
                     ]
                 },
                 mirror: {
-                    player: { x: 2, y: 7 },
-                    portal: { x: 17, y: 7 },
+                    player: { x: 2, y: 12 },
+                    portal: { x: 27, y: 12 },
                     walls: [
-                        { x: 5, y: 5, width: 1, height: 5 },
-                        { x: 9, y: 5, width: 1, height: 5 },
-                        { x: 13, y: 5, width: 1, height: 5 }
+                        { x: 5, y: 10, width: 1, height: 5 },
+                        { x: 9, y: 10, width: 1, height: 5 },
+                        { x: 13, y: 10, width: 1, height: 5 },
+                        { x: 17, y: 10, width: 1, height: 5 },
+                        { x: 21, y: 10, width: 1, height: 5 }
                     ],
                     crates: [
-                        { x: 6, y: 6 },
-                        { x: 6, y: 8 }
+                        { x: 6, y: 11 },
+                        { x: 6, y: 13 }
                     ],
                     buttons: [
-                        { x: 7, y: 5, controlsPrimary: true },
-                        { x: 11, y: 5 }
+                        { x: 7, y: 8, controlsPrimary: true },
+                        { x: 11, y: 8 }
                     ],
                     gates: [
-                        { x: 7, y: 7, width: 1, height: 3, primaryControlled: true },
-                        { x: 11, y: 7, width: 1, height: 3 }
+                        { x: 7, y: 13, width: 1, height: 3, primaryControlled: true },
+                        { x: 11, y: 13, width: 1, height: 3 }
                     ],
                     teleporters: [
-                        { x: 14, y: 6, targetX: 14, y: 8, switchesDimension: true },
-                        { x: 14, y: 8, targetX: 14, y: 6, switchesDimension: true }
+                        { x: 14, y: 11, targetX: 14, y: 13, switchesDimension: true },
+                        { x: 14, y: 13, targetX: 14, y: 11, switchesDimension: true }
                     ],
                     oneWayWalls: [
-                        { x: 15, y: 7, direction: 'left' },
-                        { x: 3, y: 7, direction: 'left' }
+                        { x: 19, y: 12, direction: 'left' },
+                        { x: 23, y: 12, direction: 'left' }
+                    ],
+                    keys: [
+                        { x: 25, y: 10 },
+                        { x: 25, y: 14 },
+                        { x: 3, y: 14 }
+                    ],
+                    lockedDoors: [
+                        { x: 22, y: 10, width: 1, height: 5 },
+                        { x: 4, y: 10, width: 1, height: 5 }
                     ]
                 }
             }
@@ -1501,6 +1441,7 @@
             switchLimit = level.switchLimit || BASE_SWITCH_LIMIT;
             completedPrimary = false;
             completedMirror = false;
+            collectedKeys = 0;
             
             // Update UI
             document.querySelector('.level-title').textContent = `Level ${levelIndex + 1}: ${level.title}`;
@@ -1530,6 +1471,10 @@
             oneWayWalls = [];
             mirrorOneWayWalls = [];
             dimensionOnlyWalls = [];
+            keys = [];
+            mirrorKeys = [];
+            lockedDoors = [];
+            mirrorLockedDoors = [];
             
             // Load primary world
             const primary = level.primary;
@@ -1547,6 +1492,8 @@
             gates = primary.gates.map(gate => ({ ...gate }));
             teleporters = primary.teleporters.map(t => ({ ...t }));
             oneWayWalls = primary.oneWayWalls.map(w => ({ ...w }));
+            keys = primary.keys.map(key => ({ ...key, collected: false }));
+            lockedDoors = primary.lockedDoors.map(door => ({ ...door }));
             
             // Load mirror world
             const mirror = level.mirror;
@@ -1564,6 +1511,12 @@
             mirrorGates = mirror.gates.map(gate => ({ ...gate }));
             mirrorTeleporters = mirror.teleporters.map(t => ({ ...t }));
             mirrorOneWayWalls = mirror.oneWayWalls.map(w => ({ ...w }));
+            mirrorKeys = mirror.keys.map(key => ({ ...key, collected: false }));
+            mirrorLockedDoors = mirror.lockedDoors.map(door => ({ ...door }));
+            
+            // Update keys display
+            totalKeys = keys.length + mirrorKeys.length;
+            updateKeysDisplay();
         }
 
         // Update difficulty meter
@@ -1636,16 +1589,16 @@
             
             // Draw current dimension
             if (currentDimension === 'primary') {
-                drawWorld(player, portal, walls, crates, buttons, gates, teleporters, oneWayWalls, false);
+                drawWorld(player, portal, walls, crates, buttons, gates, teleporters, oneWayWalls, keys, lockedDoors, false);
                 // Draw mirror world faintly in the background
                 ctx.globalAlpha = 0.2;
-                drawWorld(mirrorPlayer, mirrorPortal, mirrorWalls, mirrorCrates, mirrorButtons, mirrorGates, mirrorTeleporters, mirrorOneWayWalls, true);
+                drawWorld(mirrorPlayer, mirrorPortal, mirrorWalls, mirrorCrates, mirrorButtons, mirrorGates, mirrorTeleporters, mirrorOneWayWalls, mirrorKeys, mirrorLockedDoors, true);
                 ctx.globalAlpha = 1.0;
             } else {
-                drawWorld(mirrorPlayer, mirrorPortal, mirrorWalls, mirrorCrates, mirrorButtons, mirrorGates, mirrorTeleporters, mirrorOneWayWalls, true);
+                drawWorld(mirrorPlayer, mirrorPortal, mirrorWalls, mirrorCrates, mirrorButtons, mirrorGates, mirrorTeleporters, mirrorOneWayWalls, mirrorKeys, mirrorLockedDoors, true);
                 // Draw primary world faintly in the background
                 ctx.globalAlpha = 0.2;
-                drawWorld(player, portal, walls, crates, buttons, gates, teleporters, oneWayWalls, false);
+                drawWorld(player, portal, walls, crates, buttons, gates, teleporters, oneWayWalls, keys, lockedDoors, false);
                 ctx.globalAlpha = 1.0;
             }
             
@@ -1662,7 +1615,130 @@
             // Update dimension button state
             updateDimensionButton();
             
+            // Update minimap
+            updateMinimap();
+            
             requestAnimationFrame(gameLoop);
+        }
+
+        // Update minimap
+        function updateMinimap() {
+            // Clear minimap
+            minimapCtx.clearRect(0, 0, minimap.width, minimap.height);
+            
+            // Draw background
+            minimapCtx.fillStyle = '#ffffff';
+            minimapCtx.fillRect(0, 0, minimap.width, minimap.height);
+            
+            // Draw walls
+            minimapCtx.fillStyle = '#a5a5aa';
+            walls.forEach(wall => {
+                minimapCtx.fillRect(
+                    wall.x * TILE_SIZE * MINIMAP_SCALE,
+                    wall.y * TILE_SIZE * MINIMAP_SCALE,
+                    wall.width * TILE_SIZE * MINIMAP_SCALE,
+                    wall.height * TILE_SIZE * MINIMAP_SCALE
+                );
+            });
+            
+            // Draw mirror walls
+            minimapCtx.fillStyle = '#d1d1d6';
+            mirrorWalls.forEach(wall => {
+                minimapCtx.fillRect(
+                    wall.x * TILE_SIZE * MINIMAP_SCALE,
+                    wall.y * TILE_SIZE * MINIMAP_SCALE,
+                    wall.width * TILE_SIZE * MINIMAP_SCALE,
+                    wall.height * TILE_SIZE * MINIMAP_SCALE
+                );
+            });
+            
+            // Draw portals
+            minimapCtx.fillStyle = '#007aff';
+            minimapCtx.fillRect(
+                portal.x * TILE_SIZE * MINIMAP_SCALE,
+                portal.y * TILE_SIZE * MINIMAP_SCALE,
+                TILE_SIZE * MINIMAP_SCALE,
+                TILE_SIZE * MINIMAP_SCALE
+            );
+            
+            minimapCtx.fillStyle = '#32d74b';
+            minimapCtx.fillRect(
+                mirrorPortal.x * TILE_SIZE * MINIMAP_SCALE,
+                mirrorPortal.y * TILE_SIZE * MINIMAP_SCALE,
+                TILE_SIZE * MINIMAP_SCALE,
+                TILE_SIZE * MINIMAP_SCALE
+            );
+            
+            // Draw player
+            const activePlayer = currentDimension === 'primary' ? player : mirrorPlayer;
+            minimapCtx.fillStyle = currentDimension === 'primary' ? '#ff375f' : '#ffd60a';
+            minimapCtx.fillRect(
+                activePlayer.x * TILE_SIZE * MINIMAP_SCALE,
+                activePlayer.y * TILE_SIZE * MINIMAP_SCALE,
+                TILE_SIZE * MINIMAP_SCALE,
+                TILE_SIZE * MINIMAP_SCALE
+            );
+            
+            // Draw other player
+            const otherPlayer = currentDimension === 'primary' ? mirrorPlayer : player;
+            minimapCtx.globalAlpha = 0.5;
+            minimapCtx.fillStyle = currentDimension === 'primary' ? '#ffd60a' : '#ff375f';
+            minimapCtx.fillRect(
+                otherPlayer.x * TILE_SIZE * MINIMAP_SCALE,
+                otherPlayer.y * TILE_SIZE * MINIMAP_SCALE,
+                TILE_SIZE * MINIMAP_SCALE,
+                TILE_SIZE * MINIMAP_SCALE
+            );
+            minimapCtx.globalAlpha = 1.0;
+            
+            // Draw keys
+            keys.forEach(key => {
+                if (!key.collected) {
+                    minimapCtx.fillStyle = '#ffcc00';
+                    minimapCtx.fillRect(
+                        key.x * TILE_SIZE * MINIMAP_SCALE,
+                        key.y * TILE_SIZE * MINIMAP_SCALE,
+                        TILE_SIZE * MINIMAP_SCALE,
+                        TILE_SIZE * MINIMAP_SCALE
+                    );
+                }
+            });
+            
+            mirrorKeys.forEach(key => {
+                if (!key.collected) {
+                    minimapCtx.fillStyle = '#ffcc00';
+                    minimapCtx.globalAlpha = 0.5;
+                    minimapCtx.fillRect(
+                        key.x * TILE_SIZE * MINIMAP_SCALE,
+                        key.y * TILE_SIZE * MINIMAP_SCALE,
+                        TILE_SIZE * MINIMAP_SCALE,
+                        TILE_SIZE * MINIMAP_SCALE
+                    );
+                    minimapCtx.globalAlpha = 1.0;
+                }
+            });
+            
+            // Draw locked doors
+            minimapCtx.fillStyle = '#ff453a';
+            lockedDoors.forEach(door => {
+                minimapCtx.fillRect(
+                    door.x * TILE_SIZE * MINIMAP_SCALE,
+                    door.y * TILE_SIZE * MINIMAP_SCALE,
+                    door.width * TILE_SIZE * MINIMAP_SCALE,
+                    door.height * TILE_SIZE * MINIMAP_SCALE
+                );
+            });
+            
+            minimapCtx.globalAlpha = 0.5;
+            mirrorLockedDoors.forEach(door => {
+                minimapCtx.fillRect(
+                    door.x * TILE_SIZE * MINIMAP_SCALE,
+                    door.y * TILE_SIZE * MINIMAP_SCALE,
+                    door.width * TILE_SIZE * MINIMAP_SCALE,
+                    door.height * TILE_SIZE * MINIMAP_SCALE
+                );
+            });
+            minimapCtx.globalAlpha = 1.0;
         }
 
         // Update dimension button visual state
@@ -1781,6 +1857,9 @@
                     
                     // Check teleporters after movement completes
                     checkTeleporters();
+                    
+                    // Check keys after movement completes
+                    checkKeys();
                 } else {
                     p.x += dx * MOVE_SPEED;
                     p.y += dy * MOVE_SPEED;
@@ -1809,7 +1888,7 @@
         }
 
         // Draw World
-        function drawWorld(p, port, w, c, b, g, t, ow, isMirror) {
+        function drawWorld(p, port, w, c, b, g, t, ow, k, ld, isMirror) {
             // Draw walls with subtle shadow
             ctx.fillStyle = isMirror ? '#d1d1d6' : '#a5a5aa';
             w.forEach(wall => {
@@ -1827,6 +1906,61 @@
                 
                 // Reset shadow
                 ctx.shadowColor = 'transparent';
+            });
+            
+            // Draw locked doors
+            ctx.fillStyle = '#ff453a';
+            ld.forEach(door => {
+                // Check if door should be visible (if all keys are collected, don't draw)
+                const activeKeys = isMirror ? mirrorKeys : keys;
+                const allKeysCollected = activeKeys.every(key => key.collected);
+                if (!allKeysCollected) {
+                    // Door shadow
+                    ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+                    ctx.shadowBlur = 6;
+                    ctx.shadowOffsetY = 3;
+                    
+                    ctx.fillRect(
+                        door.x * TILE_SIZE,
+                        door.y * TILE_SIZE,
+                        door.width * TILE_SIZE,
+                        door.height * TILE_SIZE
+                    );
+                    
+                    ctx.shadowColor = 'transparent';
+                    
+                    // Draw door details
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+                    ctx.lineWidth = 2;
+                    
+                    for (let i = 0; i < door.width; i++) {
+                        for (let j = 0; j < door.height; j++) {
+                            const x = (door.x + i) * TILE_SIZE;
+                            const y = (door.y + j) * TILE_SIZE;
+                            
+                            // Draw door panel
+                            ctx.strokeRect(
+                                x + 4,
+                                y + 4,
+                                TILE_SIZE - 8,
+                                TILE_SIZE - 8
+                            );
+                            
+                            // Draw door handle
+                            ctx.fillStyle = '#ffcc00';
+                            ctx.beginPath();
+                            ctx.arc(
+                                x + TILE_SIZE - 8,
+                                y + TILE_SIZE / 2,
+                                3,
+                                0,
+                                Math.PI * 2
+                            );
+                            ctx.fill();
+                            ctx.fillStyle = '#ff453a';
+                        }
+                    }
+                }
             });
             
             // Draw one-way walls with arrows
@@ -1985,6 +2119,51 @@
                 ctx.fillStyle = isMirror ? '#af52de' : '#bf5af2';
             });
             
+            // Draw keys
+            k.forEach(key => {
+                if (!key.collected) {
+                    const centerX = (key.x + 0.5) * TILE_SIZE;
+                    const centerY = (key.y + 0.5) * TILE_SIZE;
+                    
+                    // Key glow
+                    const glow = ctx.createRadialGradient(
+                        centerX, centerY, 0,
+                        centerX, centerY, TILE_SIZE / 2
+                    );
+                    glow.addColorStop(0, '#ffcc00');
+                    glow.addColorStop(1, 'rgba(255, 204, 0, 0)');
+                    
+                    ctx.fillStyle = glow;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, TILE_SIZE / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Key head
+                    ctx.fillStyle = '#ffcc00';
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Key body
+                    ctx.fillRect(centerX - 2, centerY - 10, 4, 10);
+                    
+                    // Key teeth
+                    ctx.beginPath();
+                    ctx.moveTo(centerX - 2, centerY - 6);
+                    ctx.lineTo(centerX - 6, centerY - 8);
+                    ctx.lineTo(centerX - 2, centerY - 10);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(centerX + 2, centerY - 8);
+                    ctx.lineTo(centerX + 6, centerY - 6);
+                    ctx.lineTo(centerX + 2, centerY - 4);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            });
+            
             // Draw teleporters
             t.forEach(tele => {
                 const gradient = ctx.createRadialGradient(
@@ -2077,6 +2256,26 @@
                 Math.PI * 2
             );
             ctx.fill();
+            
+            // Draw portal frame (more visible border)
+            ctx.strokeStyle = isMirror ? '#248c46' : '#0540a8';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(
+                (port.x + 0.5) * TILE_SIZE,
+                (port.y + 0.5) * TILE_SIZE,
+                PORTAL_SIZE / 2 + 5,
+                0,
+                Math.PI * 2
+            );
+            ctx.stroke();
+            
+            // Draw portal symbol
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 20px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(isMirror ? '⧉' : '⧈', (port.x + 0.5) * TILE_SIZE, (port.y + 0.5) * TILE_SIZE);
             
             // Draw player with shadow and smooth movement
             const playerGradient = ctx.createRadialGradient(
@@ -2262,6 +2461,52 @@
             }
         }
 
+        // Check keys
+        function checkKeys() {
+            const activePlayer = currentDimension === 'primary' ? player : mirrorPlayer;
+            const activeKeys = currentDimension === 'primary' ? keys : mirrorKeys;
+            
+            for (const key of activeKeys) {
+                if (!key.collected && Math.floor(activePlayer.x) === key.x && Math.floor(activePlayer.y) === key.y) {
+                    key.collected = true;
+                    collectedKeys++;
+                    updateKeysDisplay();
+                    
+                    // Create key collection particles
+                    for (let i = 0; i < 15; i++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const speed = 1 + Math.random() * 2;
+                        
+                        particles.push({
+                            x: (key.x + 0.5) * TILE_SIZE,
+                            y: (key.y + 0.5) * TILE_SIZE,
+                            vx: Math.cos(angle) * speed,
+                            vy: Math.sin(angle) * speed,
+                            size: 2 + Math.random() * 3,
+                            color: '#ffcc00',
+                            life: PARTICLE_LIFETIME,
+                            maxLife: PARTICLE_LIFETIME
+                        });
+                    }
+                    
+                    // Play sound (would be implemented with Howler.js or similar)
+                    // playSound('key');
+                    
+                    break;
+                }
+            }
+        }
+
+        // Update keys display
+        function updateKeysDisplay() {
+            keysDisplay.textContent = `${collectedKeys}/${totalKeys}`;
+            if (collectedKeys === totalKeys && totalKeys > 0) {
+                keysDisplay.style.color = '#32d74b';
+            } else {
+                keysDisplay.style.color = '';
+            }
+        }
+
         // Handle Key Presses
         function handleKeyDown(e) {
             if (isTransitioning) return;
@@ -2326,6 +2571,8 @@
             const activeGates = currentDimension === 'primary' ? gates : mirrorGates;
             const activeButtons = currentDimension === 'primary' ? buttons : mirrorButtons;
             const activeOneWayWalls = currentDimension === 'primary' ? oneWayWalls : mirrorOneWayWalls;
+            const activeLockedDoors = currentDimension === 'primary' ? lockedDoors : mirrorLockedDoors;
+            const activeKeys = currentDimension === 'primary' ? keys : mirrorKeys;
             
             const newX = activePlayer.targetX + dx;
             const newY = activePlayer.targetY + dy;
@@ -2341,6 +2588,17 @@
                 if (newX >= wall.x && newX < wall.x + wall.width &&
                     newY >= wall.y && newY < wall.y + wall.height) {
                     return;
+                }
+            }
+            
+            // Check locked doors (if not all keys collected)
+            const allKeysCollected = activeKeys.every(key => key.collected);
+            if (!allKeysCollected) {
+                for (const door of activeLockedDoors) {
+                    if (newX >= door.x && newX < door.x + door.width &&
+                        newY >= door.y && newY < door.y + door.height) {
+                        return;
+                    }
                 }
             }
             
@@ -2385,6 +2643,16 @@
                         if (crateNewX >= wall.x && crateNewX < wall.x + wall.width &&
                             crateNewY >= wall.y && crateNewY < wall.y + wall.height) {
                             return;
+                        }
+                    }
+                    
+                    // Check crate vs locked doors
+                    if (!allKeysCollected) {
+                        for (const door of activeLockedDoors) {
+                            if (crateNewX >= door.x && crateNewX < door.x + door.width &&
+                                crateNewY >= door.y && crateNewY < door.y + door.height) {
+                                return;
+                            }
                         }
                     }
                     
@@ -2527,10 +2795,12 @@
             // Calculate score based on time and switches used
             const timeScore = Math.max(0, 5000 - gameTime * 10);
             const switchScore = Math.max(0, (switchLimit - dimensionSwitches) * 100);
-            const totalScore = timeScore + switchScore;
+            const keyScore = collectedKeys * 200;
+            const totalScore = timeScore + switchScore + keyScore;
             
             document.getElementById('complete-switches').textContent = `${dimensionSwitches}/${switchLimit}`;
             document.getElementById('complete-time').textContent = formatTime(gameTime);
+            document.getElementById('complete-keys').textContent = `${collectedKeys}/${totalKeys}`;
             document.getElementById('complete-score').textContent = totalScore;
             document.getElementById('complete-modal').classList.add('active');
             
@@ -2609,8 +2879,8 @@
                 "One-way walls only allow movement in one direction.",
                 "Teleporters can help you bypass obstacles quickly.",
                 "Some buttons control gates in the opposite dimension.",
-                "In boss levels, mechanics work differently - pay attention!",
-                "The solution often requires using both dimensions together."
+                "Collect keys to unlock doors in both dimensions.",
+                "Use the minimap to navigate larger levels more easily."
             ];
             
             // Show hint relevant to current level mechanics
